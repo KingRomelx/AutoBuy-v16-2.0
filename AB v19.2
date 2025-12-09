@@ -752,29 +752,37 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------------
--- AUTO BUY LOOP (PRESET, CUSTOM, + $1 SNIPE)
+-- AUTO BUY LOOP (PRESET, CUSTOM, + $1 SNIPE)  **FROM v19**
 ----------------------------------------------------------
 task.spawn(function()
 	while true do
 		task.wait(0.25)
 		if autoBuy then
 			local tablesFolder = workspace:FindFirstChild("Tables")
-			if not tablesFolder then continue end
+			if not tablesFolder then
+				continue
+			end
 
 			local remoteFolder = ReplicatedStorage:FindFirstChild("RemoteEvents")
-			if not remoteFolder then continue end
-			local remote = remoteFolder:FindChild("BuyDisplaySneakerEvent") or remoteFolder:FindFirstChild("BuyDisplaySneakerEvent")
-			if not remote then continue end
+			if not remoteFolder then
+				continue
+			end
+
+			local remote = remoteFolder:FindFirstChild("BuyDisplaySneakerEvent")
+			if not remote then
+				continue
+			end
 
 			for _, tbl in ipairs(tablesFolder:GetChildren()) do
-				for i = 1,3 do
-					local display = tbl:FindFirstChild("DisplaySneaker"..i)
+				for i = 1, 3 do
+					local display = tbl:FindFirstChild("DisplaySneaker" .. i)
 					if display then
 						local sneakerVal = display:FindFirstChild("SneakerValue")
-						local priceVal = display:FindFirstChild("Price")
-						if sneakerVal and priceVal and typeof(priceVal.Value)=="number" then
+						local priceVal   = display:FindFirstChild("Price")
+
+						if sneakerVal and priceVal and typeof(priceVal.Value) == "number" then
 							local shoeName = sneakerVal.Value
-							local price = priceVal.Value
+							local price    = priceVal.Value
 
 							-- 1) preset caps
 							local cap = shoeMaxPrices[shoeName]
@@ -782,7 +790,7 @@ task.spawn(function()
 								remote:FireServer(display, shoeName, price)
 							end
 
-							-- 2) custom shoe (current selected only)
+							-- 2) custom shoe (if selected)
 							if currentCustomTarget and shoeName == currentCustomTarget then
 								local cCap = customShoes[currentCustomTarget]
 								if cCap and price <= cCap then
@@ -1648,7 +1656,6 @@ local function createTradeRow(info)
 		end
 	end)
 
-	-- ensure row shows initial 0/0
 	refreshRow()
 end
 
