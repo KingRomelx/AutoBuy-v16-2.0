@@ -1,0 +1,1564 @@
+--[[
+
+MEGA SCRIPT - Auto Buy + Inventory Scanner + Trade Value Calculator
+Version: v19.7
+
+]]
+
+----------------------------------------------------------
+-- SERVICES
+----------------------------------------------------------
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local localPlayer = Players.LocalPlayer
+
+----------------------------------------------------------
+-- AUTO-BUY STATE / CONSTANTS
+----------------------------------------------------------
+local autoBuy = false
+local oneDollarSnipe = false -- $1 snipe toggle
+local MIN_PRICE = 1
+local MAX_PRICE = 1000000000 -- big enough for all prices
+
+----------------------------------------------------------
+-- PRESET SHOES (ALL LISTS + LATEST PRICE CHANGES)
+-- label = short name for UI
+-- full  = exact SneakerValue name
+-- default = max price cap AND trade value
+----------------------------------------------------------
+local presetSneakers = {
+
+	-- CORE 7
+	{label = "Mike Kobe 6 Grinch",                    full = "Mike Kobe 6 Grinch",                       default = 325000},
+	{label = "Mike Kobe 6 Reverse Grinch",            full = "Mike Kobe 6 Reverse Grinch",               default = 325000},
+	{label = "Air Bogdan 4 UNC",                      full = "Air Bogdan 4 UNC",                         default = 3000000},
+	{label = "Gocci Flip Flop",                       full = "Gocci Flip Flop",                          default = 1400000},
+	{label = "Freddy's",                              full = "Mike SB Dunk Low Freddy Krueger",          default = 1000000},
+	{label = "Air Bogdan 1 Low Bior",                 full = "Air Bogdan 1 Low Bior",                    default = 420000},
+	{label = "Air Bogdan 1 High Bior",                full = "Air Bogdan 1 High Bior",                   default = 500000},
+
+	-- FIRST BIG BATCH
+	{label = "Gold Grocs",                            full = "Gold Grocs",                               default = 200000000},
+	{label = "Air Bogdan 4 On-White Sail",            full = "Air Bogdan 4 On-White Sail",               default = 180000000},
+	{label = "Panda-Monium",                          full = "Mike Dunk Low Panda-Monium Multi Color",   default = 110000000},
+	{label = "Zebra 350",                             full = "Adios Zeezy Boost 350 Zebra",              default = 85000000},
+	{label = "On-White UNC 1",                        full = "Air Bogdan 1 High On-White UNC",           default = 65000000},
+	{label = "Mike Air Nag",                          full = "Mike Air Nag",                             default = 32000000}, -- 32m latest
+	{label = "IY Trainer W/B",                        full = "Ivie Yuitton IY Trainer White Black",      default = 1000000},
+	{label = "Mil Blue 4s",                           full = "Air Bogdan 4 Military Blue",               default = 200000},  -- latest 200k
+	{label = "ST Max 1",                              full = "Mike Air Max 1 Stranger Things",           default = 30000000},
+	{label = "Concord 11",                            full = "Air Bogdan 11 Concord",                    default = 125000},  -- latest 125k
+
+	-- BIG YELLOW / BIG RED
+	{label = "Big Yellow Boots",                      full = "Big Yellow Boots",                         default = 550000},
+	{label = "Big Red Boots",                         full = "Big Red Boots",                            default = 5700000},
+
+	-- NEW SHOES (Lot 50, etc.)
+	{label = "Lot 50/50",                             full = "On-White Dunk Low Lot 50 of 50",           default = 380000},
+	{label = "Toy Story Grocs",                       full = "Toy Story Grocs",                          default = 380000},
+	{label = "PSG 4s",                                full = "Air Bogdan 4 PSG",                         default = 1000000},
+	{label = "Raging Bull 5 Red",                     full = "Air Bogdan 5 Raging Bull Red",             default = 110000},
+	{label = "Fragment 1 High TS",                    full = "Air Bogdan 1 High Trevor Fragment",        default = 2000000},
+	{label = "Black Static 350",                      full = "Adios Zeezy Boost 350 Black Static",       default = 370000},
+	{label = "Shrek Grocs",                           full = "Shrek Grocs",                              default = 5500000},
+	{label = "TS Baroque Brown Max",                  full = "Mike Air Max Trevor Scott Baroque Brown",  default = 950000}, -- latest 950k
+	{label = "Setsubun Dunks",                        full = "Mike Dunk Low Setsubun",                   default = 100000},
+	{label = "Skeleton AF1",                          full = "Mike Air Force 1 Skeleton",                default = 110000},
+	{label = "TS x PS5 Dunks",                        full = "Mike Dunk Low Trevor Scoot x PlayStation", default = 1000000},
+	{label = "Cactus Jack SB",                        full = "Mike SB Dunk Low Cactus Jack",             default = 14100000},
+	{label = "Pale Ivory SB",                         full = "Mike SB Dunk Low Pale Ivory",              default = 15800000},
+
+	-- TREVOR AF1 BATCH
+	{label = "TS Utopia AF1",                         full = "Mike Air Force 1 Trevor Scott Utopia",     default = 120000},
+	{label = "Retro Lightning 4",                     full = "Air Bogdan 4 Retro Lightning",             default = 410000},
+	{label = "Black Metallic 5",                      full = "Air Bogdan 5 Black Metallic",              default = 210000},
+	{label = "On-White Black AF1",                    full = "On-White Air Force 1 Black",               default = 400000},
+	{label = "Motorsport 4",                          full = "Air Bogdan 4 Motorsport",                  default = 140000},
+	{label = "Beluga 350",                            full = "Adios Zeezy Boost 350 Beluga",             default = 100000},
+	{label = "Spiderverse 1 High",                    full = "Air Bogdan 1 High Spiderverse",            default = 2300000},
+	{label = "TS Phantom 1 Low",                      full = "Air Bogdan 1 Low Trevor Phantom",          default = 6200000},
+	{label = "Wet Cement 4",                          full = "Air Bogdan 4 Wet Cement",                  default = 28000000},
+	{label = "Chunky Dunky SB",                       full = "Mike SB Dunk Low Chunky Dunky",            default = 1000000},
+
+	-- LEMONADE / MATER / CHICAGO, etc.
+	{label = "Lemonade Mercurial",                    full = "Mike Mercurial Superfly 9 Lemonade",       default = 1000000},
+	{label = "Mater Grocs",                           full = "Mater Grocs",                              default = 450000},
+	{label = "Cherry 11",                             full = "Air Bogdan 11 Cherry",                     default = 5000000},
+	{label = "Emenem Carhartt 4",                     full = "Air Bogdan 4 Emenem Carhartt",             default = 7000000},
+	{label = "LV AF1 Monogram",                       full = "Ivie Yuitton Air Force 1 Monogram Damier", default = 7300000},
+	{label = "Chicago 1",                             full = "Air Bogdan 1 Chicago",                     default = 9600000},
+	{label = "Carrot Grocs",                          full = "Carrot Grocs",                             default = 12200000},
+	{label = "Tiffany AF1",                           full = "Mike Air Force 1 Tiffany",                 default = 15000000},
+	{label = "Fear 4",                                full = "Air Bogdan 4 Fear",                        default = 24800000},
+	{label = "TS Reverse Mocha 1 Low",                full = "Air Bogdan 1 Low Trevor Reverse Mocha",    default = 450000},
+	{label = "Nigel 4",                               full = "Air Bogdan 4 Nigel",                       default = 34000000},
+	{label = "Pearl 11",                              full = "Air Bogdan 11 Pearl",                      default = 41800000},
+	{label = "On-White Chicago 1 High",               full = "Air Bogdan 1 High On-White Chicago",       default = 65000000},
+	{label = "A Ma Maniere 4",                        full = "Air Bogdan 4 A Ma Maniere",                default = 24800000},
+	{label = "TS Olive 1 Low",                        full = "Air Bogdan 1 Low Trevor Olive",            default = 20200000},
+	{label = "Cement Grey 3",                         full = "Air Bogdan 3 Cement Grey",                 default = 12800000}, -- latest 12.8m
+
+	-- BUTTERCUP BATCH
+	{label = "Buttercup SB",                          full = "Mike SB Dunk Low Buttercup",               default = 8200000},
+	{label = "Blossom SB",                            full = "Mike SB Dunk Low Blossom",                 default = 8700000},
+	{label = "ComplexCon AF1",                        full = "On-White Air Force 1 ComplexCon Exclusive",default = 10000000},
+	{label = "Lightning McQueen Grocs",               full = "Lightning McQueen Grocs",                  default = 600000},
+	{label = "Crenshaw SB",                           full = "Mike SB Dunk Low Crenshaw",                default = 20800000},
+
+	-- ORCHID / UNC / ETC
+	{label = "Orchid 4",                              full = "Air Bogdan 4 Orchid",                      default = 60000000},
+	{label = "TS 4",                                  full = "Air Bogdan 4 Trevor Scott",                default = 2300000},
+	{label = "UNC 5",                                 full = "Air Bogdan 5 UNC",                         default = 1000000},
+	{label = "Craft Olive 4",                         full = "Air Bogdan 4 Craft Medium Olive",          default = 100000},
+	{label = "One Block Down Plus",                   full = "Air Max Plus One Block Down Blue",         default = 500000},
+	{label = "360 Black Static",                      full = "Adios Zeezy Boost 360 Black Static",       default = 350000},
+
+	-- FINAL RED LOBSTER BATCH
+	{label = "Red Lobster SB",                        full = "Mike SB Dunk Low Red Lobster",             default = 21000000},
+	{label = "Pine Green SB 4",                       full = "Air Bogdan 4 SB Pine Green",               default = 7000000},
+	{label = "Vomero 5 PT",                           full = "Mike Vomero 5 Platinum Tint",              default = 500000},
+	{label = "Copa Mundial",                          full = "Adios Copa Mundial",                       default = 500000},
+	{label = "TS Mocha 1 Low",                        full = "Air Bogdan 1 Low Trevor Mocha",            default = 16400000},
+	{label = "Skibidi Sneakers",                      full = "Skibidi Sneakers",                         default = 13800000},
+	{label = "Baroque Brown 1 High",                  full = "Air Bogdan 1 High Baroque Brown",          default = 15100000},
+	{label = "Pigeon SB",                             full = "Mike SB Dunk Low Pigeon",                  default = 10200000},
+	{label = "Bubbles SB",                            full = "Mike SB Dunk Low Bubbles",                 default = 7800000},
+	{label = "Bone 350",                              full = "Adios Zeezy Boost 350 Bone",               default = 7000000},
+	{label = "StrangeLove SB",                        full = "Mike SB Dunk Low StrangeLove",             default = 6000000},
+	{label = "Cool Grey 11",                          full = "Air Bogdan 11 Cool Grey",                  default = 5000000},
+}
+
+----------------------------------------------------------
+-- DATA STRUCTURES
+----------------------------------------------------------
+local shoeMaxPrices = {}
+for _, info in ipairs(presetSneakers) do
+	shoeMaxPrices[info.full] = info.default
+end
+
+local sliderRowControllers = {}
+local sliderRows = {}
+local configs = {}
+local DEFAULT_CONFIG_NAME = "Default"
+
+-- custom shoe auto-buy (separate from presets)
+local customShoes = {}          -- [name] = maxPrice
+local currentCustomTarget = nil -- string
+
+----------------------------------------------------------
+-- HELPERS
+----------------------------------------------------------
+local function formatNumber(n)
+	n = math.floor(n)
+	local s = tostring(n)
+	local pos = #s % 3
+	if pos == 0 then pos = 3 end
+	local prefix = s:sub(1, pos)
+	local rest = s:sub(pos + 1)
+	if rest ~= "" then
+		rest = rest:gsub("(%d%d%d)", ",%1")
+	end
+	return prefix .. rest
+end
+
+local function parseNumber(str)
+	if not str then return nil end
+	local cleaned = str:gsub("[^%d]", "")
+	if cleaned == "" then return nil end
+	return tonumber(cleaned)
+end
+
+local function trim(s)
+	return (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+----------------------------------------------------------
+-- SHARED SCREEN GUI FOR AUTO-BUY / SCANNER
+----------------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "SneakerToolsGUI"
+gui.ResetOnSpawn = false
+gui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+----------------------------------------------------------
+-- MAIN AUTO-BUY FRAME
+----------------------------------------------------------
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 520, 0, 600)
+frame.Position = UDim2.new(0, 200, 0, 120)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Parent = gui
+Instance.new("UICorner", frame)
+
+-- HEADER
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 40)
+header.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+header.BorderSizePixel = 0
+header.Parent = frame
+Instance.new("UICorner", header)
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -10, 1, 0)
+title.Position = UDim2.new(0, 5, 0, 0)
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.Text = "Auto Buy v19.7 (All Tables)"
+title.Parent = header
+
+-- Dragging main frame
+do
+	local dragging, dragStart, startPos
+	header.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+			dragStart = input.Position
+			startPos = frame.Position
+		end
+	end)
+	header.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = false
+		end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local delta = input.Position - dragStart
+			frame.Position = UDim2.new(
+				startPos.X.Scale,
+				startPos.X.Offset + delta.X,
+				startPos.Y.Scale,
+				startPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+end
+
+----------------------------------------------------------
+-- SNEAKERS ON TABLES (VIEW ONLY)
+----------------------------------------------------------
+local sneakerBtn = Instance.new("TextButton")
+sneakerBtn.Size = UDim2.new(0.48, -15, 0, 30)
+sneakerBtn.Position = UDim2.new(0, 10, 0, 50)
+sneakerBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+sneakerBtn.TextColor3 = Color3.new(1,1,1)
+sneakerBtn.Font = Enum.Font.GothamBold
+sneakerBtn.TextSize = 14
+sneakerBtn.Text = "Sneakers On Tables (view only)"
+sneakerBtn.Parent = frame
+Instance.new("UICorner", sneakerBtn)
+
+local sneakerListFrame = Instance.new("ScrollingFrame")
+sneakerListFrame.Size = UDim2.new(0.48, -15, 0, 90)
+sneakerListFrame.Position = UDim2.new(0, 10, 0, 85)
+sneakerListFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+sneakerListFrame.Visible = false
+sneakerListFrame.BorderSizePixel = 0
+sneakerListFrame.CanvasSize = UDim2.new(0,0,0,0)
+sneakerListFrame.ScrollBarThickness = 6
+sneakerListFrame.Parent = frame
+Instance.new("UICorner", sneakerListFrame)
+
+local sneakerListLayout = Instance.new("UIListLayout")
+sneakerListLayout.Parent = sneakerListFrame
+sneakerListLayout.Padding = UDim.new(0, 5)
+
+sneakerBtn.MouseButton1Click:Connect(function()
+	sneakerListFrame.Visible = not sneakerListFrame.Visible
+end)
+
+local function refreshSneakerList()
+	for _, child in ipairs(sneakerListFrame:GetChildren()) do
+		if child:IsA("TextLabel") then
+			child:Destroy()
+		end
+	end
+
+	local tablesFolder = workspace:FindFirstChild("Tables")
+	if not tablesFolder then return end
+
+	local seen = {}
+	local count = 0
+
+	for _, tbl in ipairs(tablesFolder:GetChildren()) do
+		for i = 1, 3 do
+			local display = tbl:FindFirstChild("DisplaySneaker"..i)
+			if display then
+				local val = display:FindFirstChild("SneakerValue")
+				if val and typeof(val.Value) == "string" and val.Value ~= "" and not seen[val.Value] then
+					seen[val.Value] = true
+					count += 1
+
+					local lbl = Instance.new("TextLabel")
+					lbl.Size = UDim2.new(1, -10, 0, 22)
+					lbl.BackgroundColor3 = Color3.fromRGB(90, 90, 90)
+					lbl.TextColor3 = Color3.new(1,1,1)
+					lbl.Font = Enum.Font.Gotham
+					lbl.TextSize = 13
+					lbl.Text = val.Value
+					lbl.Parent = sneakerListFrame
+					lbl.BorderSizePixel = 0
+				end
+			end
+		end
+	end
+
+	sneakerListFrame.CanvasSize = UDim2.new(0, 0, 0, count * 24)
+end
+
+----------------------------------------------------------
+-- CUSTOM AUTO-BUY SUMMARY LABEL (from custom GUI)
+----------------------------------------------------------
+local customSelectedLabel = Instance.new("TextLabel")
+customSelectedLabel.Size = UDim2.new(0.48, -15, 0, 30)
+customSelectedLabel.Position = UDim2.new(0.52, 5, 0, 50)
+customSelectedLabel.BackgroundColor3 = Color3.fromRGB(40,40,40)
+customSelectedLabel.TextColor3 = Color3.new(1,1,1)
+customSelectedLabel.Font = Enum.Font.Gotham
+customSelectedLabel.TextSize = 13
+customSelectedLabel.Text = "Custom Auto-Buy: None"
+customSelectedLabel.Parent = frame
+Instance.new("UICorner", customSelectedLabel)
+
+----------------------------------------------------------
+-- PRESET SHOE SEARCH + CLEAR BUTTON
+----------------------------------------------------------
+local shoeSearchBox = Instance.new("TextBox")
+shoeSearchBox.Size = UDim2.new(0.78, -20, 0, 24)
+shoeSearchBox.Position = UDim2.new(0, 10, 0, 150)
+shoeSearchBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+shoeSearchBox.TextColor3 = Color3.new(1,1,1)
+shoeSearchBox.Font = Enum.Font.Gotham
+shoeSearchBox.TextSize = 13
+shoeSearchBox.PlaceholderText = "Search preset shoes..."
+shoeSearchBox.ClearTextOnFocus = false
+shoeSearchBox.Parent = frame
+Instance.new("UICorner", shoeSearchBox)
+
+local clearSearchBtn = Instance.new("TextButton")
+clearSearchBtn.Size = UDim2.new(0.22, -10, 0, 24)
+clearSearchBtn.Position = UDim2.new(0.78, 0, 0, 150)
+clearSearchBtn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+clearSearchBtn.TextColor3 = Color3.new(1,1,1)
+clearSearchBtn.Font = Enum.Font.GothamBold
+clearSearchBtn.TextSize = 12
+clearSearchBtn.Text = "Clear"
+clearSearchBtn.Parent = frame
+Instance.new("UICorner", clearSearchBtn)
+
+local function applyShoeSearch()
+	local query = string.lower(shoeSearchBox.Text or "")
+	for _, row in ipairs(sliderRows) do
+		if row and row.Parent then
+			if query == "" then
+				row.Visible = true
+			else
+				local label = row:FindFirstChild("NameLabel")
+				if label and label:IsA("TextLabel") then
+					local txt = string.lower(label.Text or "")
+					row.Visible = string.find(txt, query, 1, true) ~= nil
+				else
+					row.Visible = true
+				end
+			end
+		end
+	end
+end
+
+shoeSearchBox:GetPropertyChangedSignal("Text"):Connect(applyShoeSearch)
+
+clearSearchBtn.MouseButton1Click:Connect(function()
+	shoeSearchBox.Text = ""
+end)
+
+----------------------------------------------------------
+-- TABLE ESP HELPERS
+----------------------------------------------------------
+local function getTableAdornee(tbl)
+	if not tbl then return nil end
+	if tbl:IsA("BasePart") or tbl:IsA("Attachment") then
+		return tbl
+	end
+	if tbl:IsA("Model") then
+		if tbl.PrimaryPart then
+			return tbl.PrimaryPart
+		end
+		for _, d in ipairs(tbl:GetDescendants()) do
+			if d:IsA("BasePart") then
+				return d
+			end
+		end
+	end
+	return nil
+end
+
+local function getTableOwnerName(tbl)
+	if not tbl then return nil end
+	local ownerVal = tbl:FindFirstChild("OwnerValue")
+	if not ownerVal then return nil end
+
+	if ownerVal:IsA("ObjectValue") and ownerVal.Value and ownerVal.Value:IsA("Player") then
+		return ownerVal.Value.Name
+	elseif ownerVal:IsA("StringValue") and ownerVal.Value ~= "" then
+		return ownerVal.Value
+	end
+	return nil
+end
+
+local function showTableNumbers()
+	local tablesFolder = workspace:FindFirstChild("Tables")
+	if not tablesFolder then return end
+
+	for _, tbl in ipairs(tablesFolder:GetChildren()) do
+		for _, d in ipairs(tbl:GetDescendants()) do
+			if d:IsA("BillboardGui") and d.Name == "TableNumberLabel" then
+				d:Destroy()
+			end
+		end
+	end
+
+	for i, tbl in ipairs(tablesFolder:GetChildren()) do
+		local adornee = getTableAdornee(tbl)
+		if adornee then
+			local ownerName = getTableOwnerName(tbl)
+
+			local billboard = Instance.new("BillboardGui")
+			billboard.Name = "TableNumberLabel"
+			billboard.Adornee = adornee
+			billboard.Size = UDim2.new(0, 90, 0, 26)
+			billboard.StudsOffset = Vector3.new(0, 5, 0)
+			billboard.AlwaysOnTop = true
+			billboard.MaxDistance = 250
+			billboard.Parent = adornee
+
+			local label = Instance.new("TextLabel")
+			label.Size = UDim2.new(1,0,1,0)
+			label.BackgroundTransparency = 0
+			label.BorderSizePixel = 1
+			label.BorderColor3 = Color3.new(0,0,0)
+			label.TextColor3 = Color3.new(1,1,1)
+			label.TextStrokeTransparency = 0.1
+			label.TextStrokeColor3 = Color3.new(0,0,0)
+			label.Font = Enum.Font.GothamBold
+			label.TextScaled = true
+			label.Parent = billboard
+
+			if ownerName then
+				label.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+				label.Text = ownerName
+			else
+				label.BackgroundColor3 = Color3.fromRGB(170, 0, 0)
+				label.Text = "Table " .. i
+			end
+		end
+	end
+end
+
+----------------------------------------------------------
+-- SLIDERS (ALL PRESET SHOES)
+----------------------------------------------------------
+local slidersFrame = Instance.new("ScrollingFrame")
+slidersFrame.Size = UDim2.new(1, -20, 0, 210)
+slidersFrame.Position = UDim2.new(0, 10, 0, 185)
+slidersFrame.BackgroundTransparency = 1
+slidersFrame.BorderSizePixel = 0
+slidersFrame.ScrollBarThickness = 6
+slidersFrame.CanvasSize = UDim2.new(0,0,0,0)
+slidersFrame.Parent = frame
+
+local slidersLayout = Instance.new("UIListLayout")
+slidersLayout.Parent = slidersFrame
+slidersLayout.FillDirection = Enum.FillDirection.Vertical
+slidersLayout.Padding = UDim.new(0, 4)
+slidersLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+slidersLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	local size = slidersLayout.AbsoluteContentSize
+	slidersFrame.CanvasSize = UDim2.new(0, 0, 0, size.Y)
+end)
+
+local function createSliderRow(info)
+	local shoeName = info.full
+
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -5, 0, 24)
+	row.BackgroundTransparency = 1
+	row.Parent = slidersFrame
+	table.insert(sliderRows, row)
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "NameLabel"
+	nameLabel.Size = UDim2.new(0.45, -5, 1, 0)
+	nameLabel.Position = UDim2.new(0, 0, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.TextColor3 = Color3.new(1,1,1)
+	nameLabel.Font = Enum.Font.Gotham
+	nameLabel.TextSize = 12
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Text = info.label
+	nameLabel.Parent = row
+
+	local priceBox = Instance.new("TextBox")
+	priceBox.Size = UDim2.new(0.2, -5, 1, 0)
+	priceBox.Position = UDim2.new(0.8, 0, 0, 0)
+	priceBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+	priceBox.TextColor3 = Color3.new(1,1,1)
+	priceBox.Font = Enum.Font.GothamBold
+	priceBox.TextSize = 12
+	priceBox.ClearTextOnFocus = false
+	priceBox.Text = formatNumber(shoeMaxPrices[shoeName] or MAX_PRICE)
+	priceBox.Parent = row
+	Instance.new("UICorner", priceBox)
+
+	local sliderBack = Instance.new("Frame")
+	sliderBack.Size = UDim2.new(0.35, 0, 0, 6)
+	sliderBack.Position = UDim2.new(0.45, 0, 0.5, -3)
+	sliderBack.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	sliderBack.BorderSizePixel = 0
+	sliderBack.Parent = row
+	Instance.new("UICorner", sliderBack)
+
+	local sliderKnob = Instance.new("Frame")
+	sliderKnob.Size = UDim2.new(0, 10, 0, 14)
+	sliderKnob.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+	sliderKnob.BorderSizePixel = 0
+	sliderKnob.Parent = sliderBack
+	sliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+	sliderKnob.Position = UDim2.new(0, 0, 0.5, 0)
+	Instance.new("UICorner", sliderKnob)
+
+	local function applyValue(v)
+		v = math.clamp(math.floor(v), MIN_PRICE, MAX_PRICE)
+		shoeMaxPrices[shoeName] = v
+		priceBox.Text = formatNumber(v)
+
+		local t = (v - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)
+		sliderKnob.Position = UDim2.new(t, 0, 0.5, 0)
+	end
+
+	sliderRowControllers[shoeName] = { applyValue = applyValue }
+	applyValue(shoeMaxPrices[shoeName] or MAX_PRICE)
+
+	local draggingSlider = false
+
+	local function setFromX(xPos)
+		local absPos = sliderBack.AbsolutePosition.X
+		local absSize = sliderBack.AbsoluteSize.X
+		if absSize <= 0 then return end
+		local t = math.clamp((xPos - absPos) / absSize, 0, 1)
+		local value = MIN_PRICE + (MAX_PRICE - MIN_PRICE) * t
+		applyValue(value)
+	end
+
+	sliderBack.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			draggingSlider = true
+			setFromX(input.Position.X)
+		end
+	end)
+
+	sliderKnob.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			draggingSlider = true
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if draggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
+			setFromX(input.Position.X)
+		end
+	end)
+
+	UserInputService.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			draggingSlider = false
+		end
+	end)
+
+	priceBox.FocusLost:Connect(function()
+		local n = parseNumber(priceBox.Text)
+		if not n then
+			priceBox.Text = formatNumber(shoeMaxPrices[shoeName] or MAX_PRICE)
+			return
+		end
+		applyValue(n)
+	end)
+end
+
+for _, info in ipairs(presetSneakers) do
+	createSliderRow(info)
+end
+
+----------------------------------------------------------
+-- CONFIG UI
+----------------------------------------------------------
+local configNameBox = Instance.new("TextBox")
+configNameBox.Size = UDim2.new(1, -20, 0, 22)
+configNameBox.Position = UDim2.new(0, 10, 0, 410)
+configNameBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
+configNameBox.TextColor3 = Color3.new(1,1,1)
+configNameBox.Font = Enum.Font.Gotham
+configNameBox.TextSize = 12
+configNameBox.PlaceholderText = "Config name (blank = '" .. DEFAULT_CONFIG_NAME .. "')"
+configNameBox.ClearTextOnFocus = false
+configNameBox.Parent = frame
+Instance.new("UICorner", configNameBox)
+
+local saveConfigBtn = Instance.new("TextButton")
+saveConfigBtn.Size = UDim2.new(0.5, -15, 0, 24)
+saveConfigBtn.Position = UDim2.new(0, 10, 0, 438)
+saveConfigBtn.BackgroundColor3 = Color3.fromRGB(80, 140, 80)
+saveConfigBtn.TextColor3 = Color3.new(1,1,1)
+saveConfigBtn.Font = Enum.Font.GothamBold
+saveConfigBtn.TextSize = 12
+saveConfigBtn.Text = "Save Config"
+saveConfigBtn.Parent = frame
+Instance.new("UICorner", saveConfigBtn)
+
+local loadConfigBtn = Instance.new("TextButton")
+loadConfigBtn.Size = UDim2.new(0.5, -15, 0, 24)
+loadConfigBtn.Position = UDim2.new(0.5, 5, 0, 438)
+loadConfigBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 140)
+loadConfigBtn.TextColor3 = Color3.new(1,1,1)
+loadConfigBtn.Font = Enum.Font.GothamBold
+loadConfigBtn.TextSize = 12
+loadConfigBtn.Text = "Load Config"
+loadConfigBtn.Parent = frame
+Instance.new("UICorner", loadConfigBtn)
+
+local function saveCurrentConfig(name)
+	local snap = {}
+	for _, info in ipairs(presetSneakers) do
+		local full = info.full
+		snap[full] = shoeMaxPrices[full] or MAX_PRICE
+	end
+	configs[name] = snap
+	print("[AutoBuy] Saved config:", name)
+end
+
+local function loadConfig(name)
+	local snap = configs[name]
+	if not snap then
+		print("[AutoBuy] No config named:", name)
+		return
+	end
+
+	for full, value in pairs(snap) do
+		shoeMaxPrices[full] = value
+		local ctrl = sliderRowControllers[full]
+		if ctrl and ctrl.applyValue then
+			ctrl.applyValue(value)
+		end
+	end
+
+	print("[AutoBuy] Loaded config:", name)
+end
+
+saveConfigBtn.MouseButton1Click:Connect(function()
+	local name = trim(configNameBox.Text)
+	if name == "" then name = DEFAULT_CONFIG_NAME end
+	saveCurrentConfig(name)
+end)
+
+loadConfigBtn.MouseButton1Click:Connect(function()
+	local name = trim(configNameBox.Text)
+	if name == "" then name = DEFAULT_CONFIG_NAME end
+	loadConfig(name)
+end)
+
+----------------------------------------------------------
+-- REFRESH BUTTON
+----------------------------------------------------------
+local refreshBtn = Instance.new("TextButton")
+refreshBtn.Size = UDim2.new(1, -20, 0, 26)
+refreshBtn.Position = UDim2.new(0, 10, 0, 468)
+refreshBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+refreshBtn.TextColor3 = Color3.new(1,1,1)
+refreshBtn.Font = Enum.Font.GothamBold
+refreshBtn.TextSize = 14
+refreshBtn.Text = "Refresh Tables / Sneakers"
+refreshBtn.Parent = frame
+Instance.new("UICorner", refreshBtn)
+
+refreshBtn.MouseButton1Click:Connect(function()
+	refreshSneakerList()
+	showTableNumbers()
+end)
+
+----------------------------------------------------------
+-- $1 SNIPE TOGGLE BUTTON
+----------------------------------------------------------
+local snipeBtn = Instance.new("TextButton")
+snipeBtn.Size = UDim2.new(1, -20, 0, 26)
+snipeBtn.Position = UDim2.new(0, 10, 0, 498)
+snipeBtn.BackgroundColor3 = Color3.fromRGB(90, 90, 160)
+snipeBtn.TextColor3 = Color3.new(1,1,1)
+snipeBtn.Font = Enum.Font.GothamBold
+snipeBtn.TextSize = 14
+snipeBtn.Text = "SNIPE $1 SHOES: OFF"
+snipeBtn.Parent = frame
+Instance.new("UICorner", snipeBtn)
+
+snipeBtn.MouseButton1Click:Connect(function()
+	oneDollarSnipe = not oneDollarSnipe
+	if oneDollarSnipe then
+		snipeBtn.Text = "SNIPE $1 SHOES: ON"
+		snipeBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 220)
+	else
+		snipeBtn.Text = "SNIPE $1 SHOES: OFF"
+		snipeBtn.BackgroundColor3 = Color3.fromRGB(90, 90, 160)
+	end
+end)
+
+----------------------------------------------------------
+-- AUTO-BUY TOGGLE BUTTON
+----------------------------------------------------------
+local autoBtn = Instance.new("TextButton")
+autoBtn.Size = UDim2.new(1, -20, 0, 40)
+autoBtn.Position = UDim2.new(0, 10, 0, 528)
+autoBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+autoBtn.TextColor3 = Color3.new(1,1,1)
+autoBtn.Font = Enum.Font.GothamBold
+autoBtn.TextSize = 18
+autoBtn.Text = "AUTO BUY: OFF"
+autoBtn.Parent = frame
+Instance.new("UICorner", autoBtn)
+
+autoBtn.MouseButton1Click:Connect(function()
+	autoBuy = not autoBuy
+	if autoBuy then
+		autoBtn.Text = "AUTO BUY: ON"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(60, 200, 80)
+	else
+		autoBtn.Text = "AUTO BUY: OFF"
+		autoBtn.BackgroundColor3 = Color3.fromRGB(200, 60, 60)
+	end
+end)
+
+----------------------------------------------------------
+-- INITIAL BUILD + AUTO REFRESH
+----------------------------------------------------------
+refreshSneakerList()
+showTableNumbers()
+applyShoeSearch()
+
+task.spawn(function()
+	while true do
+		task.wait(5)
+		refreshSneakerList()
+		showTableNumbers()
+	end
+end)
+
+----------------------------------------------------------
+-- AUTO BUY LOOP (PRESET, CUSTOM, + $1 SNIPE)
+----------------------------------------------------------
+task.spawn(function()
+	while true do
+		task.wait(0.25)
+		if autoBuy then
+			local tablesFolder = workspace:FindFirstChild("Tables")
+			if not tablesFolder then continue end
+
+			local remoteFolder = ReplicatedStorage:FindFirstChild("RemoteEvents")
+			if not remoteFolder then continue end
+			local remote = remoteFolder:FindFirstChild("BuyDisplaySneakerEvent")
+			if not remote then continue end
+
+			for _, tbl in ipairs(tablesFolder:GetChildren()) do
+				for i = 1,3 do
+					local display = tbl:FindFirstChild("DisplaySneaker"..i)
+					if display then
+						local sneakerVal = display:FindFirstChild("SneakerValue")
+						local priceVal = display:FindFirstChild("Price")
+						if sneakerVal and priceVal and typeof(priceVal.Value)=="number" then
+							local shoeName = sneakerVal.Value
+							local price = priceVal.Value
+
+							-- 1) preset caps
+							local cap = shoeMaxPrices[shoeName]
+							if cap and price <= cap then
+								remote:FireServer(display, shoeName, price)
+							end
+
+							-- 2) custom shoe (always active once added)
+							if currentCustomTarget and shoeName == currentCustomTarget then
+								local cCap = customShoes[currentCustomTarget]
+								if cCap and price <= cCap then
+									remote:FireServer(display, shoeName, price)
+								end
+							end
+
+							-- 3) $1 snipe (any shoe)
+							if oneDollarSnipe and price == 1 then
+								remote:FireServer(display, shoeName, price)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end)
+
+----------------------------------------------------------
+-- INVENTORY SCANNER FRAME (SECOND WINDOW)
+----------------------------------------------------------
+local scannerFrame = Instance.new("Frame")
+scannerFrame.Size = UDim2.new(0, 400, 0, 400)
+scannerFrame.Position = UDim2.new(0, 750, 0, 120)
+scannerFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+scannerFrame.BorderSizePixel = 0
+scannerFrame.Parent = gui
+Instance.new("UICorner", scannerFrame)
+
+local scannerHeader = Instance.new("Frame")
+scannerHeader.Size = UDim2.new(1, 0, 0, 40)
+scannerHeader.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+scannerHeader.Parent = scannerFrame
+Instance.new("UICorner", scannerHeader)
+
+local scannerHeaderLabel = Instance.new("TextLabel")
+scannerHeaderLabel.Size = UDim2.new(1, 0, 1, 0)
+scannerHeaderLabel.BackgroundTransparency = 1
+scannerHeaderLabel.Text = "Inventory Scanner"
+scannerHeaderLabel.TextColor3 = Color3.new(1,1,1)
+scannerHeaderLabel.Font = Enum.Font.GothamBold
+scannerHeaderLabel.TextSize = 20
+scannerHeaderLabel.Parent = scannerHeader
+
+-- Draggable scanner frame
+do
+	local scannerDragging = false
+	local scannerDragStart, scannerStartPos
+
+	scannerHeader.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			scannerDragging = true
+			scannerDragStart = input.Position
+			scannerStartPos = scannerFrame.Position
+		end
+	end)
+
+	scannerHeader.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			scannerDragging = false
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if scannerDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local delta = input.Position - scannerDragStart
+			scannerFrame.Position = UDim2.new(
+				scannerStartPos.X.Scale,
+				scannerStartPos.X.Offset + delta.X,
+				scannerStartPos.Y.Scale,
+				scannerStartPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+end
+
+----------------------------------------------------------
+-- SCANNER: SEARCH TEXT + BUTTON
+----------------------------------------------------------
+local searchBox = Instance.new("TextBox")
+searchBox.Size = UDim2.new(0.6, -15, 0, 30)
+searchBox.Position = UDim2.new(0, 10, 0, 50)
+searchBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+searchBox.TextColor3 = Color3.new(1,1,1)
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextSize = 14
+searchBox.PlaceholderText = "Type shoe name..."
+searchBox.ClearTextOnFocus = false
+searchBox.Parent = scannerFrame
+Instance.new("UICorner", searchBox)
+
+local scanBtn = Instance.new("TextButton")
+scanBtn.Size = UDim2.new(0.4, -15, 0, 30)
+scanBtn.Position = UDim2.new(0.6, 5, 0, 50)
+scanBtn.BackgroundColor3 = Color3.fromRGB(70,70,120)
+scanBtn.TextColor3 = Color3.new(1,1,1)
+scanBtn.Font = Enum.Font.GothamBold
+scanBtn.TextSize = 14
+scanBtn.Text = "Scan"
+scanBtn.Parent = scannerFrame
+Instance.new("UICorner", scanBtn)
+
+----------------------------------------------------------
+-- SCANNER: DROPDOWN (USING PRESET SHOES)
+----------------------------------------------------------
+local dropdownBtn = Instance.new("TextButton")
+dropdownBtn.Size = UDim2.new(0.8, -20, 0, 30)
+dropdownBtn.Position = UDim2.new(0, 10, 0, 90)
+dropdownBtn.BackgroundColor3 = Color3.fromRGB(70,70,70)
+dropdownBtn.TextColor3 = Color3.new(1,1,1)
+dropdownBtn.Font = Enum.Font.GothamBold
+dropdownBtn.TextSize = 14
+dropdownBtn.Text = "Select Shoe (from presets)"
+dropdownBtn.Parent = scannerFrame
+Instance.new("UICorner", dropdownBtn)
+
+local dropdownFrame = Instance.new("ScrollingFrame")
+dropdownFrame.Size = UDim2.new(0.8, -20, 0, 120)
+dropdownFrame.Position = UDim2.new(0, 10, 0, 125)
+dropdownFrame.BackgroundColor3 = Color3.fromRGB(50,50,50)
+dropdownFrame.BorderSizePixel = 0
+dropdownFrame.Visible = false
+dropdownFrame.ScrollBarThickness = 6
+dropdownFrame.Parent = scannerFrame
+Instance.new("UICorner", dropdownFrame)
+
+local layout = Instance.new("UIListLayout")
+layout.Parent = dropdownFrame
+layout.Padding = UDim.new(0, 5)
+
+dropdownBtn.MouseButton1Click:Connect(function()
+	dropdownFrame.Visible = not dropdownFrame.Visible
+end)
+
+----------------------------------------------------------
+-- SCANNER: CONSOLE
+----------------------------------------------------------
+local consoleFrame = Instance.new("ScrollingFrame")
+consoleFrame.Size = UDim2.new(0.95, -10, 0, 150)
+consoleFrame.Position = UDim2.new(0, 10, 0, 255)
+consoleFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+consoleFrame.BorderSizePixel = 0
+consoleFrame.ScrollBarThickness = 6
+consoleFrame.Parent = scannerFrame
+Instance.new("UICorner", consoleFrame)
+
+local consoleLayout = Instance.new("UIListLayout")
+consoleLayout.Parent = consoleFrame
+consoleLayout.Padding = UDim.new(0, 2)
+
+local function printToConsole(msg)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 0, 20)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.new(1,1,1)
+	label.Font = Enum.Font.Gotham
+	label.TextSize = 14
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Text = msg
+	label.Parent = consoleFrame
+	consoleFrame.CanvasSize = UDim2.new(0, 0, 0, consoleLayout.AbsoluteContentSize.Y)
+end
+
+consoleLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	consoleFrame.CanvasSize = UDim2.new(0,0,0,consoleLayout.AbsoluteContentSize.Y)
+end)
+
+----------------------------------------------------------
+-- SCANNER: HIGHLIGHTS
+----------------------------------------------------------
+local playerHighlights = {}
+local worldHighlights = {}
+local currentShoeNameScanner = nil
+
+local function clearHighlights()
+	for _, hl in pairs(playerHighlights) do
+		if hl and hl.Parent then hl:Destroy() end
+	end
+	for _, hl in pairs(worldHighlights) do
+		if hl and hl.Parent then hl:Destroy() end
+	end
+	playerHighlights = {}
+	worldHighlights = {}
+end
+
+local function applyWorldShoeHighlights(shoeName)
+	local tablesFolder = workspace:FindFirstChild("Tables")
+	if not tablesFolder then return end
+
+	for _, tableObj in ipairs(tablesFolder:GetChildren()) do
+		for i = 1,3 do
+			local display = tableObj:FindFirstChild("DisplaySneaker"..i)
+			if display and display:FindFirstChild("SneakerValue") and display.SneakerValue.Value == shoeName then
+				local sneakerAdornee = display:FindFirstChild("Sneaker1")
+				if not (sneakerAdornee and sneakerAdornee:IsA("BasePart")) then
+					for _, d in ipairs(display:GetDescendants()) do
+						if d:IsA("BasePart") then
+							sneakerAdornee = d
+							break
+						end
+					end
+				end
+
+				if sneakerAdornee and sneakerAdornee:IsA("BasePart") then
+					local hl = Instance.new("Highlight")
+					hl.Adornee = sneakerAdornee
+					hl.FillColor = Color3.fromRGB(0,255,0)
+					hl.FillTransparency = 0.5
+					hl.OutlineColor = Color3.fromRGB(0,255,0)
+					hl.OutlineTransparency = 0.2
+					hl.Parent = workspace
+					table.insert(worldHighlights, hl)
+					printToConsole("World has "..shoeName.." at "..display:GetFullName())
+				end
+			end
+		end
+	end
+end
+
+----------------------------------------------------------
+-- SCANNER: POPULATE DROPDOWN FROM PRESET SNEAKERS
+----------------------------------------------------------
+for _, info in ipairs(presetSneakers) do
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(1, -10, 0, 25)
+	btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+	btn.TextColor3 = Color3.new(1,1,1)
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 14
+	btn.Text = info.full
+	btn.Parent = dropdownFrame
+	Instance.new("UICorner", btn)
+
+	btn.MouseButton1Click:Connect(function()
+		currentShoeNameScanner = info.full
+		dropdownBtn.Text = info.full
+		searchBox.Text = info.full
+		dropdownFrame.Visible = false
+		scanBtn:Activate()
+	end)
+end
+
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	dropdownFrame.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y)
+end)
+
+----------------------------------------------------------
+-- SCANNER: MAIN SCAN FUNCTION
+----------------------------------------------------------
+local function runScan()
+	local targetName = searchBox.Text
+	if not targetName or targetName == "" then
+		if currentShoeNameScanner and currentShoeNameScanner ~= "" then
+			targetName = currentShoeNameScanner
+		else
+			printToConsole("Type or select a shoe first.")
+			return
+		end
+	end
+
+	currentShoeNameScanner = targetName
+	printToConsole("Scanning for: "..targetName)
+	clearHighlights()
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= localPlayer and plr:FindFirstChild("Inventory") and plr.Inventory:FindFirstChild("SellableInventory") then
+			if plr.Inventory.SellableInventory:FindFirstChild(targetName) then
+				printToConsole(plr.Name.." has "..targetName)
+				if plr.Character then
+					local hl = Instance.new("Highlight")
+					hl.Adornee = plr.Character
+					hl.FillColor = Color3.fromRGB(0,0,255)
+					hl.FillTransparency = 0.5
+					hl.OutlineColor = Color3.fromRGB(0,0,255)
+					hl.OutlineTransparency = 0.2
+					hl.Parent = workspace
+					table.insert(playerHighlights, hl)
+				end
+			end
+		end
+	end
+
+	applyWorldShoeHighlights(targetName)
+end
+
+scanBtn.MouseButton1Click:Connect(runScan)
+searchBox.FocusLost:Connect(function(enterPressed)
+	if enterPressed then
+		runScan()
+	end
+end)
+
+----------------------------------------------------------
+-- CUSTOM SHOE GUI (SEPARATE WINDOW)
+----------------------------------------------------------
+local customFrame = Instance.new("Frame")
+customFrame.Size = UDim2.new(0, 350, 0, 260)
+customFrame.Position = UDim2.new(0, 200, 0, 680)
+customFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+customFrame.BorderSizePixel = 0
+customFrame.Parent = gui
+Instance.new("UICorner", customFrame)
+
+local customHeader = Instance.new("Frame")
+customHeader.Size = UDim2.new(1, 0, 0, 40)
+customHeader.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+customHeader.Parent = customFrame
+Instance.new("UICorner", customHeader)
+
+local customHeaderLabel = Instance.new("TextLabel")
+customHeaderLabel.Size = UDim2.new(1, 0, 1, 0)
+customHeaderLabel.BackgroundTransparency = 1
+customHeaderLabel.Text = "Custom Auto Buy"
+customHeaderLabel.TextColor3 = Color3.new(1,1,1)
+customHeaderLabel.Font = Enum.Font.GothamBold
+customHeaderLabel.TextSize = 18
+customHeaderLabel.Parent = customHeader
+
+-- draggable custom frame
+do
+	local customDragging = false
+	local customDragStart, customStartPos
+
+	customHeader.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			customDragging = true
+			customDragStart = input.Position
+			customStartPos = customFrame.Position
+		end
+	end)
+
+	customHeader.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 then
+			customDragging = false
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if customDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+			local delta = input.Position - customDragStart
+			customFrame.Position = UDim2.new(
+				customStartPos.X.Scale,
+				customStartPos.X.Offset + delta.X,
+				customStartPos.Y.Scale,
+				customStartPos.Y.Offset + delta.Y
+			)
+		end
+	end)
+end
+
+local nameLabel = Instance.new("TextLabel")
+nameLabel.Size = UDim2.new(1, -20, 0, 20)
+nameLabel.Position = UDim2.new(0, 10, 0, 50)
+nameLabel.BackgroundTransparency = 1
+nameLabel.TextColor3 = Color3.new(1,1,1)
+nameLabel.Font = Enum.Font.Gotham
+nameLabel.TextSize = 13
+nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+nameLabel.Text = "Custom Shoe Name:"
+nameLabel.Parent = customFrame
+
+local customNameBox = Instance.new("TextBox")
+customNameBox.Size = UDim2.new(1, -20, 0, 26)
+customNameBox.Position = UDim2.new(0, 10, 0, 72)
+customNameBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+customNameBox.TextColor3 = Color3.new(1,1,1)
+customNameBox.Font = Enum.Font.Gotham
+customNameBox.TextSize = 14
+customNameBox.PlaceholderText = "Exact shoe name (SneakerValue)"
+customNameBox.ClearTextOnFocus = false
+customNameBox.Parent = customFrame
+Instance.new("UICorner", customNameBox)
+
+local priceLabel = Instance.new("TextLabel")
+priceLabel.Size = UDim2.new(1, -20, 0, 20)
+priceLabel.Position = UDim2.new(0, 10, 0, 104)
+priceLabel.BackgroundTransparency = 1
+priceLabel.TextColor3 = Color3.new(1,1,1)
+priceLabel.Font = Enum.Font.Gotham
+priceLabel.TextSize = 13
+priceLabel.TextXAlignment = Enum.TextXAlignment.Left
+priceLabel.Text = "Max Price:"
+priceLabel.Parent = customFrame
+
+local customPriceBox = Instance.new("TextBox")
+customPriceBox.Size = UDim2.new(1, -20, 0, 26)
+customPriceBox.Position = UDim2.new(0, 10, 0, 126)
+customPriceBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+customPriceBox.TextColor3 = Color3.new(1,1,1)
+customPriceBox.Font = Enum.Font.Gotham
+customPriceBox.TextSize = 14
+customPriceBox.PlaceholderText = "e.g. 2,500,000"
+customPriceBox.ClearTextOnFocus = false
+customPriceBox.Parent = customFrame
+Instance.new("UICorner", customPriceBox)
+
+local addCustomBtn = Instance.new("TextButton")
+addCustomBtn.Size = UDim2.new(1, -20, 0, 28)
+addCustomBtn.Position = UDim2.new(0, 10, 0, 158)
+addCustomBtn.BackgroundColor3 = Color3.fromRGB(80, 160, 80)
+addCustomBtn.TextColor3 = Color3.new(1,1,1)
+addCustomBtn.Font = Enum.Font.GothamBold
+addCustomBtn.TextSize = 14
+addCustomBtn.Text = "Add / Update Custom Shoe"
+addCustomBtn.Parent = customFrame
+Instance.new("UICorner", addCustomBtn)
+
+-- dropdown for custom shoes
+local customDropLabel = Instance.new("TextLabel")
+customDropLabel.Size = UDim2.new(1, -20, 0, 20)
+customDropLabel.Position = UDim2.new(0, 10, 0, 192)
+customDropLabel.BackgroundTransparency = 1
+customDropLabel.TextColor3 = Color3.new(1,1,1)
+customDropLabel.Font = Enum.Font.Gotham
+customDropLabel.TextSize = 13
+customDropLabel.TextXAlignment = Enum.TextXAlignment.Left
+customDropLabel.Text = "Select Custom Shoe (or None):"
+customDropLabel.Parent = customFrame
+
+local customDropdown = Instance.new("ScrollingFrame")
+customDropdown.Size = UDim2.new(1, -20, 0, 50)
+customDropdown.Position = UDim2.new(0, 10, 0, 214)
+customDropdown.BackgroundColor3 = Color3.fromRGB(50,50,50)
+customDropdown.BorderSizePixel = 0
+customDropdown.ScrollBarThickness = 6
+customDropdown.CanvasSize = UDim2.new(0,0,0,0)
+customDropdown.Parent = customFrame
+Instance.new("UICorner", customDropdown)
+
+local customLayout = Instance.new("UIListLayout")
+customLayout.Parent = customDropdown
+customLayout.Padding = UDim.new(0, 4)
+
+customLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	customDropdown.CanvasSize = UDim2.new(0,0,0,customLayout.AbsoluteContentSize.Y)
+end)
+
+local function updateCustomDropdown()
+	for _, child in ipairs(customDropdown:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	-- None button
+	local noneBtn = Instance.new("TextButton")
+	noneBtn.Size = UDim2.new(1, -10, 0, 22)
+	noneBtn.BackgroundColor3 = Color3.fromRGB(80,80,80)
+	noneBtn.TextColor3 = Color3.new(1,1,1)
+	noneBtn.Font = Enum.Font.GothamBold
+	noneBtn.TextSize = 13
+	noneBtn.Text = "None"
+	noneBtn.Parent = customDropdown
+	Instance.new("UICorner", noneBtn)
+
+	noneBtn.MouseButton1Click:Connect(function()
+		currentCustomTarget = nil
+		customSelectedLabel.Text = "Custom Auto-Buy: None"
+	end)
+
+	for name, price in pairs(customShoes) do
+		local btn = Instance.new("TextButton")
+		btn.Size = UDim2.new(1, -10, 0, 22)
+		btn.BackgroundColor3 = Color3.fromRGB(90,90,90)
+		btn.TextColor3 = Color3.new(1,1,1)
+		btn.Font = Enum.Font.Gotham
+		btn.TextSize = 13
+		btn.Text = name .. " (" .. formatNumber(price) .. ")"
+		btn.Parent = customDropdown
+		Instance.new("UICorner", btn)
+
+		btn.MouseButton1Click:Connect(function()
+			currentCustomTarget = name
+			customSelectedLabel.Text = "Custom Auto-Buy: " .. name .. " (" .. formatNumber(price) .. ")"
+		end)
+	end
+end
+
+updateCustomDropdown()
+
+addCustomBtn.MouseButton1Click:Connect(function()
+	local name = trim(customNameBox.Text or "")
+	local priceStr = customPriceBox.Text or ""
+	if name == "" then
+		warn("[CustomAutoBuy] Missing shoe name")
+		return
+	end
+	local num = parseNumber(priceStr)
+	if not num then
+		warn("[CustomAutoBuy] Invalid price")
+		return
+	end
+	customShoes[name] = num
+	customPriceBox.Text = formatNumber(num)
+	updateCustomDropdown()
+	currentCustomTarget = name
+	customSelectedLabel.Text = "Custom Auto-Buy: " .. name .. " (" .. formatNumber(num) .. ")"
+end)
+
+----------------------------------------------------------
+-- TRADE VALUE CALCULATOR v19.7  (WIDER)
+----------------------------------------------------------
+local tradeGui = Instance.new("ScreenGui")
+tradeGui.Name = "TradeValueGUI"
+tradeGui.ResetOnSpawn = false
+tradeGui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local tradeFrame = Instance.new("Frame")
+tradeFrame.Size = UDim2.new(0, 900, 0, 420) -- wider
+tradeFrame.Position = UDim2.new(0.5, -450, 0.1, 0)
+tradeFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+tradeFrame.BorderSizePixel = 0
+tradeFrame.Parent = tradeGui
+Instance.new("UICorner", tradeFrame)
+
+local tradeHeader = Instance.new("Frame")
+tradeHeader.Size = UDim2.new(1, 0, 0, 40)
+tradeHeader.BackgroundColor3 = Color3.fromRGB(25,25,25)
+tradeHeader.Parent = tradeFrame
+Instance.new("UICorner", tradeHeader)
+
+local tradeTitle = Instance.new("TextLabel")
+tradeTitle.Size = UDim2.new(1, -10, 1, 0)
+tradeTitle.Position = UDim2.new(0, 5, 0, 0)
+tradeTitle.BackgroundTransparency = 1
+tradeTitle.TextColor3 = Color3.new(1,1,1)
+tradeTitle.Font = Enum.Font.GothamBold
+tradeTitle.TextSize = 18
+tradeTitle.Text = "Trade Value Calculator v19.7"
+tradeTitle.Parent = tradeHeader
+
+-- draggable trade frame
+do
+	local dragging, dragStart, startPos
+	tradeHeader.InputBegan:Connect(function(input)
+	 if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = tradeFrame.Position
+	 end
+	end)
+	tradeHeader.InputEnded:Connect(function(input)
+	 if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+	 end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+	 if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = input.Position - dragStart
+		tradeFrame.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	 end
+	end)
+end
+
+-- main content
+local contentFrame = Instance.new("Frame")
+contentFrame.Size = UDim2.new(1, -20, 1, -70)
+contentFrame.Position = UDim2.new(0, 10, 0, 50)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = tradeFrame
+
+local myTitle = Instance.new("TextLabel")
+myTitle.Size = UDim2.new(0.5, -10, 0, 20)
+myTitle.Position = UDim2.new(0, 0, 0, 0)
+myTitle.BackgroundTransparency = 1
+myTitle.Text = "My Shoes"
+myTitle.TextColor3 = Color3.new(1,1,1)
+myTitle.Font = Enum.Font.GothamBold
+myTitle.TextSize = 14
+contentFrame.Parent = tradeFrame
+myTitle.Parent = contentFrame
+
+local theirTitle = Instance.new("TextLabel")
+theirTitle.Size = UDim2.new(0.5, -10, 0, 20)
+theirTitle.Position = UDim2.new(0.5, 10, 0, 0)
+theirTitle.BackgroundTransparency = 1
+theirTitle.Text = "Their Shoes"
+theirTitle.TextColor3 = Color3.new(1,1,1)
+theirTitle.Font = Enum.Font.GothamBold
+theirTitle.TextSize = 14
+theirTitle.Parent = contentFrame
+
+local myList = Instance.new("ScrollingFrame")
+myList.Size = UDim2.new(0.5, -10, 1, -60)
+myList.Position = UDim2.new(0, 0, 0, 25)
+myList.BackgroundColor3 = Color3.fromRGB(40,40,40)
+myList.BorderSizePixel = 0
+myList.ScrollBarThickness = 6
+myList.CanvasSize = UDim2.new(0,0,0,0)
+myList.Parent = contentFrame
+Instance.new("UICorner", myList)
+
+local theirList = Instance.new("ScrollingFrame")
+theirList.Size = UDim2.new(0.5, -10, 1, -60)
+theirList.Position = UDim2.new(0.5, 10, 0, 25)
+theirList.BackgroundColor3 = Color3.fromRGB(40,40,40)
+theirList.BorderSizePixel = 0
+theirList.ScrollBarThickness = 6
+theirList.CanvasSize = UDim2.new(0,0,0,0)
+theirList.Parent = contentFrame
+Instance.new("UICorner", theirList)
+
+local myLayout = Instance.new("UIListLayout")
+myLayout.Parent = myList
+myLayout.Padding = UDim.new(0, 3)
+
+local theirLayout = Instance.new("UIListLayout")
+theirLayout.Parent = theirList
+theirLayout.Padding = UDim.new(0, 3)
+
+myLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	myList.CanvasSize = UDim2.new(0,0,0,myLayout.AbsoluteContentSize.Y)
+end)
+theirLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+	theirList.CanvasSize = UDim2.new(0,0,0,theirLayout.AbsoluteContentSize.Y)
+end)
+
+local myTotalLabel = Instance.new("TextLabel")
+myTotalLabel.Size = UDim2.new(0.5, -10, 0, 20)
+myTotalLabel.Position = UDim2.new(0, 0, 1, -30)
+myTotalLabel.BackgroundTransparency = 1
+myTotalLabel.TextColor3 = Color3.new(1,1,1)
+myTotalLabel.Font = Enum.Font.GothamBold
+myTotalLabel.TextSize = 14
+myTotalLabel.TextXAlignment = Enum.TextXAlignment.Left
+myTotalLabel.Text = "My Total: 0"
+myTotalLabel.Parent = contentFrame
+
+local theirTotalLabel = Instance.new("TextLabel")
+theirTotalLabel.Size = UDim2.new(0.5, -10, 0, 20)
+theirTotalLabel.Position = UDim2.new(0.5, 10, 1, -30)
+theirTotalLabel.BackgroundTransparency = 1
+theirTotalLabel.TextColor3 = Color3.new(1,1,1)
+theirTotalLabel.Font = Enum.Font.GothamBold
+theirTotalLabel.TextSize = 14
+theirTotalLabel.TextXAlignment = Enum.TextXAlignment.Left
+theirTotalLabel.Text = "Their Total: 0"
+theirTotalLabel.Parent = contentFrame
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, 0, 0, 20)
+statusLabel.Position = UDim2.new(0, 0, 1, -5)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextSize = 14
+statusLabel.Text = "Fair trade (equal value)"
+statusLabel.Parent = tradeFrame
+
+local myTotals = {}
+local theirTotals = {}
+for _, info in ipairs(presetSneakers) do
+	myTotals[info.full] = 0
+	theirTotals[info.full] = 0
+end
+
+local function updateTotals()
+	local myTotal = 0
+	local theirTotal = 0
+	for _, info in ipairs(presetSneakers) do
+		myTotal = myTotal + (myTotals[info.full] or 0) * info.default
+		theirTotal = theirTotal + (theirTotals[info.full] or 0) * info.default
+	end
+
+	myTotalLabel.Text = "My Total: $" .. formatNumber(myTotal)
+	theirTotalLabel.Text = "Their Total: $" .. formatNumber(theirTotal)
+
+	local diff = myTotal - theirTotal
+	if diff == 0 then
+		statusLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+		statusLabel.Text = "Fair trade (equal value)"
+	elseif diff < 0 then
+		-- they are giving more than me → I'm winning
+		statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+		statusLabel.Text = "You are WINNING by $" .. formatNumber(-diff)
+	else
+		-- I'm giving more than them → I'm losing
+		statusLabel.TextColor3 = Color3.fromRGB(255, 60, 60)
+		statusLabel.Text = "You are LOSING by $" .. formatNumber(diff)
+	end
+end
+
+local function makeRow(parentList, totalsTable, info)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -8, 0, 26)
+	row.BackgroundColor3 = Color3.fromRGB(50,50,50)
+	row.Parent = parentList
+	Instance.new("UICorner", row)
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(0.55, -5, 1, 0)
+	nameLabel.Position = UDim2.new(0, 5, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.TextColor3 = Color3.new(1,1,1)
+	nameLabel.Font = Enum.Font.Gotham
+	nameLabel.TextSize = 12
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+	nameLabel.Text = info.full
+	nameLabel.Parent = row
+
+	local priceLabel = Instance.new("TextLabel")
+	priceLabel.Size = UDim2.new(0.25, -5, 1, 0)
+	priceLabel.Position = UDim2.new(0.55, 0, 0, 0)
+	priceLabel.BackgroundTransparency = 1
+	priceLabel.TextColor3 = Color3.new(1,1,1)
+	priceLabel.Font = Enum.Font.Gotham
+	priceLabel.TextSize = 12
+	priceLabel.TextXAlignment = Enum.TextXAlignment.Right
+	priceLabel.Text = "$" .. formatNumber(info.default)
+	priceLabel.Parent = row
+
+	local minusBtn = Instance.new("TextButton")
+	minusBtn.Size = UDim2.new(0, 22, 0, 20)
+	minusBtn.Position = UDim2.new(0.81, 2, 0.5, -10)
+	minusBtn.BackgroundColor3 = Color3.fromRGB(160,60,60)
+	minusBtn.TextColor3 = Color3.new(1,1,1)
+	minusBtn.Font = Enum.Font.GothamBold
+	minusBtn.TextSize = 14
+	minusBtn.Text = "-"
+	minusBtn.Parent = row
+	Instance.new("UICorner", minusBtn)
+
+	local countLabel = Instance.new("TextLabel")
+	countLabel.Size = UDim2.new(0, 30, 0, 20)
+	countLabel.Position = UDim2.new(0.81, 28, 0.5, -10)
+	countLabel.BackgroundColor3 = Color3.fromRGB(30,30,30)
+	countLabel.TextColor3 = Color3.new(1,1,1)
+	countLabel.Font = Enum.Font.GothamBold
+	countLabel.TextSize = 12
+	countLabel.Text = "0"
+	countLabel.Parent = row
+	Instance.new("UICorner", countLabel)
+
+	local plusBtn = Instance.new("TextButton")
+	plusBtn.Size = UDim2.new(0, 22, 0, 20)
+	plusBtn.Position = UDim2.new(0.81, 60, 0.5, -10)
+	plusBtn.BackgroundColor3 = Color3.fromRGB(60,160,60)
+	plusBtn.TextColor3 = Color3.new(1,1,1)
+	plusBtn.Font = Enum.Font.GothamBold
+	plusBtn.TextSize = 14
+	plusBtn.Text = "+"
+	plusBtn.Parent = row
+	Instance.new("UICorner", plusBtn)
+
+	local count = 0
+	local function apply()
+		if count < 0 then count = 0 end
+		if count > 18 then count = 18 end
+		totalsTable[info.full] = count
+		countLabel.Text = tostring(count)
+		updateTotals()
+	end
+
+	plusBtn.MouseButton1Click:Connect(function()
+		count = count + 1
+		apply()
+	end)
+	minusBtn.MouseButton1Click:Connect(function()
+		count = count - 1
+		apply()
+	end)
+end
+
+for _, info in ipairs(presetSneakers) do
+	makeRow(myList, myTotals, info)
+	makeRow(theirList, theirTotals, info)
+end
+
+updateTotals()
