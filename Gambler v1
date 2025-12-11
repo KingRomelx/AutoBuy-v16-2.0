@@ -1,0 +1,908 @@
+--// SERVICES
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+
+---------------------------------------------------------
+-- REMOTE
+---------------------------------------------------------
+local changeDisplayRemote = ReplicatedStorage
+    :WaitForChild("RemoteEvents")
+    :WaitForChild("ChangeDisplaySneaker")
+
+---------------------------------------------------------
+-- SETTINGS
+---------------------------------------------------------
+local DEFAULT_GOOD_SHOE = "Air Bogdan 4 Metallic Purple"
+local DEFAULT_BAD_SHOE  = "Air Bogdan 4 Metallic Purple"
+
+local DEFAULT_PRICE_LOW  = 1
+local DEFAULT_PRICE_HIGH = 1000000
+
+local currentDisplayName = "DisplaySneaker2"
+local autoLoop = false
+local autoLoopDelay = 1
+local lowerPriceChance = 50 -- 0–100 (%), GOOD shoe chance
+
+---------------------------------------------------------
+-- HELPERS
+---------------------------------------------------------
+local function changeDisplay(shoeName, displayName, price)
+    local args = { shoeName, displayName, price }
+    changeDisplayRemote:FireServer(unpack(args))
+end
+
+local function safeNumber(str, fallback)
+    local n = tonumber(str)
+    if not n then
+        return fallback
+    end
+    return n
+end
+
+local function formatWithCommas(num)
+    num = math.floor(tonumber(num) or 0)
+    local sign = ""
+    if num < 0 then
+        sign = "-"
+        num = -num
+    end
+    local s = tostring(num)
+    while true do
+        local k
+        s, k = s:gsub("^(%d+)(%d%d%d)", "%1,%2")
+        if k == 0 then break end
+    end
+    return sign .. s
+end
+
+---------------------------------------------------------
+-- GUI ROOT (WIDER WINDOW)
+---------------------------------------------------------
+local gui = Instance.new("ScreenGui")
+gui.Name = "DisplayManagerPlusGui"
+gui.ResetOnSpawn = false
+gui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 740, 0, 520)
+frame.Position = UDim2.new(0, 100, 0, 100)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BorderSizePixel = 0
+frame.Parent = gui
+Instance.new("UICorner", frame)
+
+---------------------------------------------------------
+-- HEADER (DRAGGABLE) + MONEY ESP TOGGLE
+---------------------------------------------------------
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 40)
+header.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+header.Parent = frame
+Instance.new("UICorner", header)
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -180, 1, 0)
+title.Position = UDim2.new(0, 5, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "Display Manager - Auto Add/Remove"
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = header
+
+-- Money ESP toggle button
+local moneyESPEnabled = false
+local moneyESPConn -- heartbeat connection
+
+local moneyBtn = Instance.new("TextButton")
+moneyBtn.Size = UDim2.new(0, 160, 0, 26)
+moneyBtn.Position = UDim2.new(1, -170, 0, 7)
+moneyBtn.AnchorPoint = Vector2.new(0,0)
+moneyBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+moneyBtn.TextColor3 = Color3.new(1,1,1)
+moneyBtn.Font = Enum.Font.GothamBold
+moneyBtn.TextSize = 12
+moneyBtn.Text = "Money ESP: OFF"
+moneyBtn.Parent = header
+Instance.new("UICorner", moneyBtn)
+
+-- drag
+do
+    local dragging, dragStart, startPos
+    header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+    header.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+---------------------------------------------------------
+-- DESCRIPTION
+---------------------------------------------------------
+local info = Instance.new("TextLabel")
+info.Size = UDim2.new(1, -20, 0, 50)
+info.Position = UDim2.new(0, 10, 0, 45)
+info.BackgroundTransparency = 1
+info.TextColor3 = Color3.new(1,1,1)
+info.Font = Enum.Font.Gotham
+info.TextSize = 13
+info.TextWrapped = true
+info.TextXAlignment = Enum.TextXAlignment.Left
+info.Text = "Controls DisplaySneaker1/2/3. Auto loop uses a GOOD shoe (lower price) and BAD shoe (higher price). Inventory scan uses both sellable & unsellable shoes."
+info.Parent = frame
+
+---------------------------------------------------------
+-- LEFT COLUMN (GOOD/BAD SHOES + PRICES)
+---------------------------------------------------------
+-- Good shoe (low price)
+local goodShoeLabel = Instance.new("TextLabel")
+goodShoeLabel.Size = UDim2.new(0, 340, 0, 20)
+goodShoeLabel.Position = UDim2.new(0, 10, 0, 100)
+goodShoeLabel.BackgroundTransparency = 1
+goodShoeLabel.Text = "Good Shoe Name (lower price):"
+goodShoeLabel.TextColor3 = Color3.new(1,1,1)
+goodShoeLabel.Font = Enum.Font.Gotham
+goodShoeLabel.TextSize = 13
+goodShoeLabel.TextXAlignment = Enum.TextXAlignment.Left
+goodShoeLabel.Parent = frame
+
+local goodShoeBox = Instance.new("TextBox")
+goodShoeBox.Size = UDim2.new(0, 340, 0, 30)
+goodShoeBox.Position = UDim2.new(0, 10, 0, 125)
+goodShoeBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+goodShoeBox.TextColor3 = Color3.new(1,1,1)
+goodShoeBox.Font = Enum.Font.Gotham
+goodShoeBox.TextSize = 13
+goodShoeBox.ClearTextOnFocus = false
+goodShoeBox.Text = DEFAULT_GOOD_SHOE
+goodShoeBox.Parent = frame
+Instance.new("UICorner", goodShoeBox)
+
+-- Bad shoe (high price)
+local badShoeLabel = Instance.new("TextLabel")
+badShoeLabel.Size = UDim2.new(0, 340, 0, 20)
+badShoeLabel.Position = UDim2.new(0, 10, 0, 165)
+badShoeLabel.BackgroundTransparency = 1
+badShoeLabel.Text = "Bad Shoe Name (higher price):"
+badShoeLabel.TextColor3 = Color3.new(1,1,1)
+badShoeLabel.Font = Enum.Font.Gotham
+badShoeLabel.TextSize = 13
+badShoeLabel.TextXAlignment = Enum.TextXAlignment.Left
+badShoeLabel.Parent = frame
+
+local badShoeBox = Instance.new("TextBox")
+badShoeBox.Size = UDim2.new(0, 340, 0, 30)
+badShoeBox.Position = UDim2.new(0, 10, 0, 190)
+badShoeBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+badShoeBox.TextColor3 = Color3.new(1,1,1)
+badShoeBox.Font = Enum.Font.Gotham
+badShoeBox.TextSize = 13
+badShoeBox.ClearTextOnFocus = false
+badShoeBox.Text = DEFAULT_BAD_SHOE
+badShoeBox.Parent = frame
+Instance.new("UICorner", badShoeBox)
+
+-- Price low (for good shoe)
+local priceALabel = Instance.new("TextLabel")
+priceALabel.Size = UDim2.new(0, 340, 0, 20)
+priceALabel.Position = UDim2.new(0, 10, 0, 230)
+priceALabel.BackgroundTransparency = 1
+priceALabel.Text = "Price A (intended LOWER price / good shoe):"
+priceALabel.TextColor3 = Color3.new(1,1,1)
+priceALabel.Font = Enum.Font.Gotham
+priceALabel.TextSize = 13
+priceALabel.TextXAlignment = Enum.TextXAlignment.Left
+priceALabel.Parent = frame
+
+local priceBoxA = Instance.new("TextBox")
+priceBoxA.Size = UDim2.new(0, 130, 0, 30)
+priceBoxA.Position = UDim2.new(0, 10, 0, 255)
+priceBoxA.BackgroundColor3 = Color3.fromRGB(50,50,50)
+priceBoxA.TextColor3 = Color3.new(1,1,1)
+priceBoxA.Font = Enum.Font.Gotham
+priceBoxA.TextSize = 13
+priceBoxA.ClearTextOnFocus = false
+priceBoxA.Text = tostring(DEFAULT_PRICE_LOW)
+priceBoxA.Parent = frame
+Instance.new("UICorner", priceBoxA)
+
+-- Price high (for bad shoe)
+local priceBLabel = Instance.new("TextLabel")
+priceBLabel.Size = UDim2.new(0, 340, 0, 20)
+priceBLabel.Position = UDim2.new(0, 10, 0, 295)
+priceBLabel.BackgroundTransparency = 1
+priceBLabel.Text = "Price B (intended HIGHER price / bad shoe):"
+priceBLabel.TextColor3 = Color3.new(1,1,1)
+priceBLabel.Font = Enum.Font.Gotham
+priceBLabel.TextSize = 13
+priceBLabel.TextXAlignment = Enum.TextXAlignment.Left
+priceBLabel.Parent = frame
+
+local priceBoxB = Instance.new("TextBox")
+priceBoxB.Size = UDim2.new(0, 130, 0, 30)
+priceBoxB.Position = UDim2.new(0, 10, 0, 320)
+priceBoxB.BackgroundColor3 = Color3.fromRGB(50,50,50)
+priceBoxB.TextColor3 = Color3.new(1,1,1)
+priceBoxB.Font = Enum.Font.Gotham
+priceBoxB.TextSize = 13
+priceBoxB.ClearTextOnFocus = false
+priceBoxB.Text = tostring(DEFAULT_PRICE_HIGH)
+priceBoxB.Parent = frame
+Instance.new("UICorner", priceBoxB)
+
+---------------------------------------------------------
+-- RIGHT COLUMN TOP: TARGET DISPLAY
+---------------------------------------------------------
+local displayLabel = Instance.new("TextLabel")
+displayLabel.Size = UDim2.new(0, 340, 0, 20)
+displayLabel.Position = UDim2.new(0, 390, 0, 100)
+displayLabel.BackgroundTransparency = 1
+displayLabel.Text = "Target Display:"
+displayLabel.TextColor3 = Color3.new(1,1,1)
+displayLabel.Font = Enum.Font.Gotham
+displayLabel.TextSize = 13
+displayLabel.TextXAlignment = Enum.TextXAlignment.Left
+displayLabel.Parent = frame
+
+local displayBtn = Instance.new("TextButton")
+displayBtn.Size = UDim2.new(0, 340, 0, 30)
+displayBtn.Position = UDim2.new(0, 390, 0, 125)
+displayBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+displayBtn.TextColor3 = Color3.new(1,1,1)
+displayBtn.Font = Enum.Font.GothamBold
+displayBtn.TextSize = 13
+displayBtn.Text = currentDisplayName
+displayBtn.Parent = frame
+Instance.new("UICorner", displayBtn)
+
+local displayDropdown = Instance.new("Frame")
+displayDropdown.Size = UDim2.new(0, 340, 0, 0)
+displayDropdown.Position = UDim2.new(0, 390, 0, 160)
+displayDropdown.BackgroundColor3 = Color3.fromRGB(40,40,40)
+displayDropdown.BorderSizePixel = 0
+displayDropdown.ClipsDescendants = true
+displayDropdown.Visible = false
+displayDropdown.Parent = frame
+Instance.new("UICorner", displayDropdown)
+
+local displayList = Instance.new("UIListLayout")
+displayList.Parent = displayDropdown
+displayList.Padding = UDim.new(0, 2)
+
+local displayNames = {"DisplaySneaker1","DisplaySneaker2","DisplaySneaker3"}
+
+local function setDisplay(name)
+    currentDisplayName = name
+    displayBtn.Text = name
+end
+
+for _, name in ipairs(displayNames) do
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -6, 0, 26)
+    btn.Position = UDim2.new(0, 3, 0, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 12
+    btn.Text = name
+    btn.Parent = displayDropdown
+    Instance.new("UICorner", btn)
+    btn.MouseButton1Click:Connect(function()
+        setDisplay(name)
+        displayDropdown.Visible = false
+        displayDropdown.Size = UDim2.new(0,340,0,0)
+    end)
+end
+
+displayBtn.MouseButton1Click:Connect(function()
+    displayDropdown.Visible = not displayDropdown.Visible
+    if displayDropdown.Visible then
+        displayDropdown.Size = UDim2.new(0,340,0,#displayNames * 28)
+    else
+        displayDropdown.Size = UDim2.new(0,340,0,0)
+    end
+end)
+
+---------------------------------------------------------
+-- RIGHT COLUMN MID/BOTTOM: INVENTORY SELECTOR (BOTH SHOES)
+---------------------------------------------------------
+local invLabel = Instance.new("TextLabel")
+invLabel.Size = UDim2.new(0, 340, 0, 20)
+invLabel.Position = UDim2.new(0, 390, 0, 200)
+invLabel.BackgroundTransparency = 1
+invLabel.Text = "Inventory (sellable + unsellable):"
+invLabel.TextColor3 = Color3.new(1,1,1)
+invLabel.Font = Enum.Font.Gotham
+invLabel.TextSize = 13
+invLabel.TextXAlignment = Enum.TextXAlignment.Left
+invLabel.Parent = frame
+
+local invGoodBtn = Instance.new("TextButton")
+invGoodBtn.Size = UDim2.new(0, 165, 0, 30)
+invGoodBtn.Position = UDim2.new(0, 390, 0, 225)
+invGoodBtn.BackgroundColor3 = Color3.fromRGB(70,120,200)
+invGoodBtn.TextColor3 = Color3.new(1,1,1)
+invGoodBtn.Font = Enum.Font.GothamBold
+invGoodBtn.TextSize = 12
+invGoodBtn.Text = "Set GOOD shoe"
+invGoodBtn.Parent = frame
+Instance.new("UICorner", invGoodBtn)
+
+local invBadBtn = Instance.new("TextButton")
+invBadBtn.Size = UDim2.new(0, 165, 0, 30)
+invBadBtn.Position = UDim2.new(0, 565, 0, 225)
+invBadBtn.BackgroundColor3 = Color3.fromRGB(180,120,60)
+invBadBtn.TextColor3 = Color3.new(1,1,1)
+invBadBtn.Font = Enum.Font.GothamBold
+invBadBtn.TextSize = 12
+invBadBtn.Text = "Set BAD shoe"
+invBadBtn.Parent = frame
+Instance.new("UICorner", invBadBtn)
+
+-- search box for inventory dropdown
+local invSearchBox = Instance.new("TextBox")
+invSearchBox.Size = UDim2.new(0, 340, 0, 24)
+invSearchBox.Position = UDim2.new(0, 390, 0, 265)
+invSearchBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+invSearchBox.TextColor3 = Color3.new(1,1,1)
+invSearchBox.Font = Enum.Font.Gotham
+invSearchBox.TextSize = 12
+invSearchBox.PlaceholderText = "Search shoes..."
+invSearchBox.ClearTextOnFocus = false
+invSearchBox.Parent = frame
+Instance.new("UICorner", invSearchBox)
+
+local invDropdown = Instance.new("ScrollingFrame")
+invDropdown.Size = UDim2.new(0, 340, 0, 200)
+invDropdown.Position = UDim2.new(0, 390, 0, 295)
+invDropdown.BackgroundColor3 = Color3.fromRGB(40,40,40)
+invDropdown.BorderSizePixel = 0
+invDropdown.ScrollBarThickness = 6
+invDropdown.Visible = false
+invDropdown.ClipsDescendants = true
+invDropdown.Parent = frame
+Instance.new("UICorner", invDropdown)
+
+local invLayout = Instance.new("UIListLayout")
+invLayout.Padding = UDim.new(0, 2)
+invLayout.Parent = invDropdown
+
+local currentInvTarget = "good" -- "good" or "bad"
+local invButtons = {} -- name -> button
+
+-- inventory refresh (sellable + unsellable)
+local function refreshInventory(filterText)
+    filterText = (filterText or ""):lower()
+
+    for _, b in pairs(invButtons) do
+        b:Destroy()
+    end
+    invButtons = {}
+
+    local inv = localPlayer:FindFirstChild("Inventory")
+    if not inv then
+        invDropdown.CanvasSize = UDim2.new()
+        return
+    end
+
+    local sell = inv:FindFirstChild("SellableInventory")
+    local unsell = inv:FindFirstChild("UnsellableInventory")
+
+    local count = 0
+    local seen = {}
+
+    local function addFolder(folder)
+        if not folder then return end
+        for _, item in ipairs(folder:GetChildren()) do
+            if not seen[item.Name] then
+                local nameLower = item.Name:lower()
+                if filterText == "" or string.find(nameLower, filterText, 1, true) then
+                    seen[item.Name] = true
+                    count += 1
+
+                    local btn = Instance.new("TextButton")
+                    btn.Size = UDim2.new(1, -6, 0, 26)
+                    btn.Position = UDim2.new(0, 3, 0, 0)
+                    btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+                    btn.TextColor3 = Color3.new(1,1,1)
+                    btn.Font = Enum.Font.Gotham
+                    btn.TextSize = 12
+                    btn.Text = item.Name
+                    btn.Parent = invDropdown
+                    Instance.new("UICorner", btn)
+
+                    invButtons[item.Name] = btn
+
+                    btn.MouseButton1Click:Connect(function()
+                        if currentInvTarget == "good" then
+                            goodShoeBox.Text = item.Name
+                        else
+                            badShoeBox.Text = item.Name
+                        end
+                        invDropdown.Visible = false
+                    end)
+                end
+            end
+        end
+    end
+
+    addFolder(sell)
+    addFolder(unsell)
+
+    invDropdown.CanvasSize = UDim2.new(0,0,0,count * 28)
+end
+
+local function openInventory(target)
+    currentInvTarget = target
+    invSearchBox.Text = ""
+    refreshInventory("")
+    invDropdown.Visible = true
+end
+
+invSearchBox.FocusLost:Connect(function()
+    if invDropdown.Visible then
+        refreshInventory(invSearchBox.Text)
+    end
+end)
+
+invGoodBtn.MouseButton1Click:Connect(function()
+    openInventory("good")
+end)
+invBadBtn.MouseButton1Click:Connect(function()
+    openInventory("bad")
+end)
+
+-- auto-rescan when inventory changes (while dropdown is open)
+do
+    local inv = localPlayer:FindFirstChild("Inventory")
+    if inv then
+        local folders = {
+            inv:FindFirstChild("SellableInventory"),
+            inv:FindFirstChild("UnsellableInventory")
+        }
+        local function hookFolder(folder)
+            if not folder then return end
+            folder.ChildAdded:Connect(function()
+                if invDropdown.Visible then
+                    refreshInventory(invSearchBox.Text)
+                end
+            end)
+            folder.ChildRemoved:Connect(function()
+                if invDropdown.Visible then
+                    refreshInventory(invSearchBox.Text)
+                end
+            end)
+        end
+        for _, f in ipairs(folders) do
+            hookFolder(f)
+        end
+    end
+end
+
+---------------------------------------------------------
+-- BUTTONS (LEFT COLUMN, TWO ROWS)
+---------------------------------------------------------
+local leftButtonWidth = 165
+
+local addPriceABtn = Instance.new("TextButton")
+addPriceABtn.Size = UDim2.new(0, leftButtonWidth, 0, 40)
+addPriceABtn.Position = UDim2.new(0, 10, 0, 360)
+addPriceABtn.BackgroundColor3 = Color3.fromRGB(70,170,90)
+addPriceABtn.TextColor3 = Color3.new(1,1,1)
+addPriceABtn.Font = Enum.Font.GothamBold
+addPriceABtn.TextSize = 15
+addPriceABtn.Text = "Add GOOD (A)"
+addPriceABtn.Parent = frame
+Instance.new("UICorner", addPriceABtn)
+
+local addPriceBBtn = Instance.new("TextButton")
+addPriceBBtn.Size = UDim2.new(0, leftButtonWidth, 0, 40)
+addPriceBBtn.Position = UDim2.new(0, 10 + 340 - leftButtonWidth, 0, 360)
+addPriceBBtn.BackgroundColor3 = Color3.fromRGB(0,120,255)
+addPriceBBtn.TextColor3 = Color3.new(1,1,1)
+addPriceBBtn.Font = Enum.Font.GothamBold
+addPriceBBtn.TextSize = 15
+addPriceBBtn.Text = "Add BAD (B)"
+addPriceBBtn.Parent = frame
+Instance.new("UICorner", addPriceBBtn)
+
+local removeBtn = Instance.new("TextButton")
+removeBtn.Size = UDim2.new(0, leftButtonWidth, 0, 40)
+removeBtn.Position = UDim2.new(0, 10, 0, 410)
+removeBtn.BackgroundColor3 = Color3.fromRGB(190,70,70)
+removeBtn.TextColor3 = Color3.new(1,1,1)
+removeBtn.Font = Enum.Font.GothamBold
+removeBtn.TextSize = 15
+removeBtn.Text = "Remove Shoe"
+removeBtn.Parent = frame
+Instance.new("UICorner", removeBtn)
+
+local autoLoopBtn = Instance.new("TextButton")
+autoLoopBtn.Size = UDim2.new(0, leftButtonWidth, 0, 40)
+autoLoopBtn.Position = UDim2.new(0, 10 + 340 - leftButtonWidth, 0, 410)
+autoLoopBtn.BackgroundColor3 = Color3.fromRGB(120,120,120)
+autoLoopBtn.TextColor3 = Color3.new(1,1,1)
+autoLoopBtn.Font = Enum.Font.GothamBold
+autoLoopBtn.TextSize = 15
+autoLoopBtn.Text = "Auto Loop: OFF"
+autoLoopBtn.Parent = frame
+Instance.new("UICorner", autoLoopBtn)
+
+---------------------------------------------------------
+-- AUTO LOOP DELAY + % CHANCE LOWER PRICE (SLIDER + BOX)
+---------------------------------------------------------
+local delayLabel = Instance.new("TextLabel")
+delayLabel.Size = UDim2.new(0, 220, 0, 20)
+delayLabel.Position = UDim2.new(0, 10, 0, 460)
+delayLabel.BackgroundTransparency = 1
+delayLabel.Text = "Auto Loop Delay (seconds):"
+delayLabel.TextColor3 = Color3.new(1,1,1)
+delayLabel.Font = Enum.Font.Gotham
+delayLabel.TextSize = 13
+delayLabel.TextXAlignment = Enum.TextXAlignment.Left
+delayLabel.Parent = frame
+
+local delayBox = Instance.new("TextBox")
+delayBox.Size = UDim2.new(0, 80, 0, 28)
+delayBox.Position = UDim2.new(0, 230, 0, 456)
+delayBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+delayBox.TextColor3 = Color3.new(1,1,1)
+delayBox.Font = Enum.Font.Gotham
+delayBox.TextSize = 13
+delayBox.Text = tostring(autoLoopDelay)
+delayBox.ClearTextOnFocus = false
+delayBox.Parent = frame
+Instance.new("UICorner", delayBox)
+
+delayBox.FocusLost:Connect(function()
+    autoLoopDelay = safeNumber(delayBox.Text, autoLoopDelay)
+    delayBox.Text = tostring(autoLoopDelay)
+end)
+
+-- % chance lower price
+local chanceLabel = Instance.new("TextLabel")
+chanceLabel.Size = UDim2.new(0, 260, 0, 20)
+chanceLabel.Position = UDim2.new(0, 390, 0, 430)
+chanceLabel.BackgroundTransparency = 1
+chanceLabel.Text = "Chance GOOD shoe (lower price) %:"
+chanceLabel.TextColor3 = Color3.new(1,1,1)
+chanceLabel.Font = Enum.Font.Gotham
+chanceLabel.TextSize = 12
+chanceLabel.TextXAlignment = Enum.TextXAlignment.Left
+chanceLabel.Parent = frame
+
+local chanceSliderBack = Instance.new("Frame")
+chanceSliderBack.Size = UDim2.new(0, 260, 0, 6)
+chanceSliderBack.Position = UDim2.new(0, 390, 0, 455)
+chanceSliderBack.BackgroundColor3 = Color3.fromRGB(60,60,60)
+chanceSliderBack.BorderSizePixel = 0
+chanceSliderBack.Parent = frame
+Instance.new("UICorner", chanceSliderBack)
+
+local chanceKnob = Instance.new("Frame")
+chanceKnob.Size = UDim2.new(0, 10, 0, 14)
+chanceKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+chanceKnob.Position = UDim2.new(lowerPriceChance/100, 0, 0.5, 0)
+chanceKnob.BackgroundColor3 = Color3.fromRGB(200,200,200)
+chanceKnob.BorderSizePixel = 0
+chanceKnob.Parent = chanceSliderBack
+Instance.new("UICorner", chanceKnob)
+
+local chanceBox = Instance.new("TextBox")
+chanceBox.Size = UDim2.new(0, 60, 0, 28)
+chanceBox.Position = UDim2.new(0, 660, 0, 445)
+chanceBox.BackgroundColor3 = Color3.fromRGB(50,50,50)
+chanceBox.TextColor3 = Color3.new(1,1,1)
+chanceBox.Font = Enum.Font.Gotham
+chanceBox.TextSize = 13
+chanceBox.Text = tostring(lowerPriceChance)
+chanceBox.ClearTextOnFocus = false
+chanceBox.Parent = frame
+Instance.new("UICorner", chanceBox)
+
+local chanceInfo = Instance.new("TextLabel")
+chanceInfo.Size = UDim2.new(0, 340, 0, 18)
+chanceInfo.Position = UDim2.new(0, 390, 0, 480)
+chanceInfo.BackgroundTransparency = 1
+chanceInfo.TextColor3 = Color3.new(1,1,1)
+chanceInfo.Font = Enum.Font.Gotham
+chanceInfo.TextSize = 12
+chanceInfo.TextXAlignment = Enum.TextXAlignment.Left
+chanceInfo.Parent = frame
+
+local function updateChanceInfo()
+    chanceInfo.Text = string.format(
+        "Good (low) chance: %d%% | Bad (high) chance: %d%%",
+        lowerPriceChance,
+        100 - lowerPriceChance
+    )
+    chanceKnob.Position = UDim2.new(lowerPriceChance/100, 0, 0.5, 0)
+end
+
+local function getLowerPriceChance()
+    local n = tonumber(chanceBox.Text)
+    if not n then
+        n = lowerPriceChance
+    end
+    n = math.clamp(math.floor(n + 0.5), 0, 100)
+    lowerPriceChance = n
+    chanceBox.Text = tostring(lowerPriceChance)
+    updateChanceInfo()
+    return lowerPriceChance
+end
+
+updateChanceInfo()
+
+-- slider interaction
+local chanceDragging = false
+
+local function applyChanceFromX(xPos)
+    local absPos = chanceSliderBack.AbsolutePosition.X
+    local absSize = chanceSliderBack.AbsoluteSize.X
+    if absSize <= 0 then return end
+    local t = math.clamp((xPos - absPos) / absSize, 0, 1)
+    local val = math.clamp(math.floor(t*100 + 0.5), 0, 100)
+    lowerPriceChance = val
+    chanceBox.Text = tostring(val)
+    updateChanceInfo()
+end
+
+chanceSliderBack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        chanceDragging = true
+        applyChanceFromX(input.Position.X)
+    end
+end)
+
+chanceKnob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        chanceDragging = true
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if chanceDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        applyChanceFromX(input.Position.X)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        chanceDragging = false
+    end
+end)
+
+chanceBox.FocusLost:Connect(function()
+    getLowerPriceChance()
+end)
+
+---------------------------------------------------------
+-- BUTTON LOGIC
+---------------------------------------------------------
+addPriceABtn.MouseButton1Click:Connect(function()
+    local shoe = goodShoeBox.Text
+    if shoe == "" then shoe = DEFAULT_GOOD_SHOE end
+    local priceA = safeNumber(priceBoxA.Text, DEFAULT_PRICE_LOW)
+    changeDisplay(shoe, currentDisplayName, priceA)
+end)
+
+addPriceBBtn.MouseButton1Click:Connect(function()
+    local shoe = badShoeBox.Text
+    if shoe == "" then
+        shoe = goodShoeBox.Text ~= "" and goodShoeBox.Text or DEFAULT_BAD_SHOE
+    end
+    local priceB = safeNumber(priceBoxB.Text, DEFAULT_PRICE_HIGH)
+    changeDisplay(shoe, currentDisplayName, priceB)
+end)
+
+removeBtn.MouseButton1Click:Connect(function()
+    changeDisplay("", currentDisplayName, 0)
+end)
+
+autoLoopBtn.MouseButton1Click:Connect(function()
+    autoLoop = not autoLoop
+    autoLoopBtn.Text = autoLoop and "Auto Loop: ON" or "Auto Loop: OFF"
+    autoLoopBtn.BackgroundColor3 = autoLoop and Color3.fromRGB(50,200,70)
+        or Color3.fromRGB(120,120,120)
+end)
+
+---------------------------------------------------------
+-- AUTO LOOP THREAD
+-- Uses % to pick LOWER vs HIGHER price.
+-- LOWER price => good shoe, HIGHER price => bad shoe.
+---------------------------------------------------------
+task.spawn(function()
+    while true do
+        task.wait(0.05)
+
+        if autoLoop then
+            local goodShoe = goodShoeBox.Text
+            if goodShoe == "" then goodShoe = DEFAULT_GOOD_SHOE end
+
+            local badShoe = badShoeBox.Text
+            if badShoe == "" then badShoe = goodShoe end
+
+            local priceA = safeNumber(priceBoxA.Text, DEFAULT_PRICE_LOW)
+            local priceB = safeNumber(priceBoxB.Text, DEFAULT_PRICE_HIGH)
+
+            local lowPrice, highPrice
+            if priceA <= priceB then
+                lowPrice, highPrice = priceA, priceB
+            else
+                lowPrice, highPrice = priceB, priceA
+            end
+
+            local lowChance = getLowerPriceChance() / 100
+            local rand = math.random()
+
+            local useLower = (rand < lowChance)
+
+            local chosenPrice
+            local chosenShoe
+
+            if useLower then
+                chosenPrice = lowPrice
+                chosenShoe = goodShoe
+            else
+                chosenPrice = highPrice
+                chosenShoe = badShoe
+            end
+
+            changeDisplay(chosenShoe, currentDisplayName, chosenPrice)
+            task.wait(autoLoopDelay)
+            changeDisplay("", currentDisplayName, 0)
+            task.wait(autoLoopDelay)
+        end
+    end
+end)
+
+---------------------------------------------------------
+-- MONEY ESP (black box, green text above head, with commas)
+---------------------------------------------------------
+local function getCashValueObject(player)
+    local leaderstats = player:FindFirstChild("leaderstats")
+    if not leaderstats then return nil end
+
+    -- try common names first
+    local candidates = {"Cash","Money","Coins","Bucks","Balance","MoneyValue"}
+    for _, name in ipairs(candidates) do
+        local v = leaderstats:FindFirstChild(name)
+        if v and (v:IsA("IntValue") or v:IsA("NumberValue")) then
+            return v
+        end
+    end
+
+    -- fallback: first number-like child
+    for _, v in ipairs(leaderstats:GetChildren()) do
+        if v:IsA("IntValue") or v:IsA("NumberValue") then
+            return v
+        end
+    end
+
+    return nil
+end
+
+local function ensureMoneyBillboard(player)
+    local character = player.Character
+    if not character then return end
+
+    local head = character:FindFirstChild("Head")
+    if not head then return end
+
+    local existing = head:FindFirstChild("MoneyBillboard")
+    if existing and existing:IsA("BillboardGui") then
+        return existing
+    end
+
+    local bb = Instance.new("BillboardGui")
+    bb.Name = "MoneyBillboard"
+    bb.Size = UDim2.new(0, 120, 0, 30)
+    bb.StudsOffset = Vector3.new(0, 4, 0)
+    bb.Adornee = head
+    bb.AlwaysOnTop = true
+    bb.Parent = head
+
+    local label = Instance.new("TextLabel")
+    label.Name = "MoneyLabel"
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundColor3 = Color3.new(0,0,0)
+    label.BackgroundTransparency = 0.2
+    label.TextColor3 = Color3.fromRGB(0,255,0) -- green
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 14
+    label.Text = ""
+    label.Parent = bb
+
+    return bb
+end
+
+local function destroyAllMoneyBillboards()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character then
+            local head = player.Character:FindFirstChild("Head")
+            if head then
+                local bb = head:FindFirstChild("MoneyBillboard")
+                if bb then
+                    bb:Destroy()
+                end
+            end
+        end
+    end
+end
+
+local function startMoneyESP()
+    if moneyESPConn then
+        moneyESPConn:Disconnect()
+        moneyESPConn = nil
+    end
+
+    moneyESPConn = RunService.Heartbeat:Connect(function()
+        for _, player in ipairs(Players:GetPlayers()) do
+            local bb = ensureMoneyBillboard(player)
+            if bb then
+                local label = bb:FindFirstChild("MoneyLabel")
+                if label and label:IsA("TextLabel") then
+                    local v = getCashValueObject(player)
+                    if v then
+                        label.Text = formatWithCommas(v.Value)
+                    else
+                        label.Text = "N/A"
+                    end
+                end
+            end
+        end
+    end)
+
+    -- ensure new players get billboards
+    Players.PlayerAdded:Connect(function(player)
+        player.CharacterAdded:Connect(function()
+            if moneyESPEnabled then
+                ensureMoneyBillboard(player)
+            end
+        end)
+    end)
+end
+
+local function stopMoneyESP()
+    if moneyESPConn then
+        moneyESPConn:Disconnect()
+        moneyESPConn = nil
+    end
+    destroyAllMoneyBillboards()
+end
+
+moneyBtn.MouseButton1Click:Connect(function()
+    moneyESPEnabled = not moneyESPEnabled
+    if moneyESPEnabled then
+        moneyBtn.Text = "Money ESP: ON"
+        moneyBtn.BackgroundColor3 = Color3.fromRGB(40,120,40)
+        startMoneyESP()
+    else
+        moneyBtn.Text = "Money ESP: OFF"
+        moneyBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+        stopMoneyESP()
+    end
+end)
