@@ -1,0 +1,3 @@
+loadstring(game:HttpGet("https://raw.githubusercontent.com/KingRomelx/AutoBuy-v16-2.0/main/AutoBuy%20v19.7"))()
+loadstring(game:HttpGet("https://rawscripts.net/raw/Universal-Script-infinite-yield-39585"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/KingRomelx/AutoBuy-v16-2.0/main/GP6"))()
