@@ -1,0 +1,478 @@
+local player = game:GetService("Players").LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+----------------------------------------------------------
+-- PRICE PARSING
+----------------------------------------------------------
+local function parsePrice(str)
+    if not str then return nil end
+    -- keep original behavior: support K / M suffix
+    str = str:gsub("[^%d%.KM]", "")
+    local multiplier = 1
+    if str:find("K") then
+        multiplier = 1000
+        str = str:gsub("K", "")
+    elseif str:find("M") then
+        multiplier = 1000000
+        str = str:gsub("M", "")
+    end
+    local num = tonumber(str)
+    if not num then return nil end
+    return num * multiplier
+end
+
+----------------------------------------------------------
+-- FIND CLOSEST LAST SALE
+----------------------------------------------------------
+local function getClosestLastSale(sneakerName, sneakerPrice)
+    local phoneGui = playerGui:FindFirstChild("PhoneGui")
+    if not phoneGui then return nil end
+
+    local stockFrame = phoneGui:FindFirstChild("PhoneFrame")
+    if not stockFrame then return nil end
+    stockFrame = stockFrame:FindFirstChild("InsideFrame")
+    if not stockFrame then return nil end
+    stockFrame = stockFrame:FindFirstChild("StockYFrame")
+    if not stockFrame then return nil end
+    stockFrame = stockFrame:FindFirstChild("PricesFrame")
+    if not stockFrame then return nil end
+    stockFrame = stockFrame:FindFirstChild("ScrollingFrame")
+    if not stockFrame then return nil end
+
+    local closestPrice = nil
+    local minDiff = math.huge
+
+    for _, folder in pairs(stockFrame:GetChildren()) do
+        if folder:IsA("Frame") and folder.Name == sneakerName and folder:FindFirstChild("LastSaleText") then
+            local text = folder.LastSaleText.Text
+            local priceStr = text:match("%$(.-)</b>")
+            if priceStr then
+                local price = parsePrice(priceStr)
+                if price then
+                    local diff = math.abs(price - sneakerPrice)
+                    if diff < minDiff then
+                        minDiff = diff
+                        closestPrice = price
+                    end
+                end
+            end
+        end
+    end
+
+    return closestPrice
+end
+
+----------------------------------------------------------
+-- GUI SETUP
+----------------------------------------------------------
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "PriceComparisonUI"
+screenGui.Parent = playerGui
+screenGui.DisplayOrder = 100
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 360, 0, 240)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BackgroundTransparency = 1  -- start fully transparent (slider can change)
+frame.BorderSizePixel = 0
+frame.Position = UDim2.new(0.5, -180, 0.5, -120)
+frame.Parent = screenGui
+
+-- HEADER
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 30)
+header.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+header.BorderSizePixel = 0
+header.Parent = frame
+
+local headerLabel = Instance.new("TextLabel")
+headerLabel.Size = UDim2.new(1, -40, 1, 0)
+headerLabel.Position = UDim2.new(0, 10, 0, 0)
+headerLabel.BackgroundTransparency = 1
+headerLabel.Text = "Price Comparison"
+headerLabel.TextColor3 = Color3.new(1, 1, 1)
+headerLabel.Font = Enum.Font.GothamBold
+headerLabel.TextSize = 16
+headerLabel.TextXAlignment = Enum.TextXAlignment.Left
+headerLabel.Parent = header
+
+-- Collapse Button
+local collapseBtn = Instance.new("TextButton")
+collapseBtn.Size = UDim2.new(0, 30, 0, 20)
+collapseBtn.Position = UDim2.new(1, -35, 0.5, -10)
+collapseBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+collapseBtn.TextColor3 = Color3.new(1,1,1)
+collapseBtn.Font = Enum.Font.GothamBold
+collapseBtn.TextSize = 14
+collapseBtn.Text = "-"
+collapseBtn.Parent = header
+
+local collapseCorner = Instance.new("UICorner")
+collapseCorner.CornerRadius = UDim.new(0, 4)
+collapseCorner.Parent = collapseBtn
+
+-- CONTENT AREA
+local contentFrame = Instance.new("Frame")
+contentFrame.Size = UDim2.new(1, 0, 1, -30)
+contentFrame.Position = UDim2.new(0, 0, 0, 30)
+contentFrame.BackgroundTransparency = 1
+contentFrame.Parent = frame
+
+----------------------------------------------------------
+-- DRAGGING + "REMEMBER POSITION" (NO AUTO RESET)
+----------------------------------------------------------
+local UserInputService = game:GetService("UserInputService")
+local dragging = false
+local dragStart, startPos
+local userMoved = false
+
+header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+    end
+end)
+
+header.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+        userMoved = true
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+----------------------------------------------------------
+-- LABELS
+----------------------------------------------------------
+local function createLabel(text, yOffset)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -20, 0, 26)
+    label.Position = UDim2.new(0, 10, 0, yOffset)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 0, 0) -- red text (like you asked)
+    label.TextScaled = false
+    label.TextSize = 16
+    label.Font = Enum.Font.GothamBold
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Text = text
+    label.Parent = contentFrame
+    return label
+end
+
+local sneakerLabel = createLabel("Sneaker Price: $0", 5)
+local lastSaleLabel = createLabel("Closest Last Sale: $0", 35)
+local comparisonLabel = createLabel("Comparison: N/A", 65)
+
+----------------------------------------------------------
+-- HISTORY VIEWER
+----------------------------------------------------------
+local historyFrame = Instance.new("ScrollingFrame")
+historyFrame.Size = UDim2.new(1, -20, 0, 70)
+historyFrame.Position = UDim2.new(0, 10, 0, 95)
+historyFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)
+historyFrame.BackgroundTransparency = 0.5
+historyFrame.BorderSizePixel = 0
+historyFrame.ScrollBarThickness = 4
+historyFrame.Parent = contentFrame
+
+local historyLayout = Instance.new("UIListLayout")
+historyLayout.Parent = historyFrame
+historyLayout.Padding = UDim.new(0, 2)
+
+historyLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    historyFrame.CanvasSize = UDim2.new(0,0,0, historyLayout.AbsoluteContentSize.Y)
+end)
+
+local historyEntries = {}
+local maxHistory = 15
+local lastHistoryName, lastHistoryPrice
+
+local function addHistoryEntry(name, price, closest, state, pct)
+    if not closest or not price then return end
+
+    -- only add when sneaker or price actually changed
+    if lastHistoryName == name and lastHistoryPrice == price then
+        return
+    end
+
+    lastHistoryName = name
+    lastHistoryPrice = price
+
+    local line = Instance.new("TextLabel")
+    line.Size = UDim2.new(1, -4, 0, 18)
+    line.BackgroundTransparency = 1
+    line.Font = Enum.Font.Gotham
+    line.TextSize = 12
+    line.TextXAlignment = Enum.TextXAlignment.Left
+
+    local stateText = state or "N/A"
+    local pctText = pct and (string.format("%.1f", pct) .. "%") or "N/A"
+
+    line.Text = string.format(
+        "%s | Price: %s | Last: %s | %s (%s)",
+        name,
+        tostring(price),
+        tostring(closest),
+        stateText,
+        pctText
+    )
+
+    line.TextColor3 = Color3.new(1,1,1)
+    line.Parent = historyFrame
+
+    table.insert(historyEntries, line)
+    if #historyEntries > maxHistory then
+        local first = table.remove(historyEntries, 1)
+        if first and first.Parent then
+            first:Destroy()
+        end
+    end
+end
+
+----------------------------------------------------------
+-- SETTINGS: SOUND TOGGLE + TRANSPARENCY SLIDER
+----------------------------------------------------------
+-- Sound toggle
+local soundEnabled = false
+
+local soundBtn = Instance.new("TextButton")
+soundBtn.Size = UDim2.new(0.45, -10, 0, 24)
+soundBtn.Position = UDim2.new(0, 10, 1, -30)
+soundBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
+soundBtn.TextColor3 = Color3.new(1,1,1)
+soundBtn.Font = Enum.Font.GothamBold
+soundBtn.TextSize = 12
+soundBtn.Text = "Sound: OFF"
+soundBtn.Parent = contentFrame
+
+local soundCorner = Instance.new("UICorner")
+soundCorner.CornerRadius = UDim.new(0, 4)
+soundCorner.Parent = soundBtn
+
+soundBtn.MouseButton1Click:Connect(function()
+    soundEnabled = not soundEnabled
+    soundBtn.Text = soundEnabled and "Sound: ON" or "Sound: OFF"
+    soundBtn.BackgroundColor3 = soundEnabled and Color3.fromRGB(80,140,80) or Color3.fromRGB(60,60,60)
+end)
+
+-- Sounds are placeholders: set their SoundId in Studio if you want audio.
+local goodSound = Instance.new("Sound")
+goodSound.Name = "GoodDealSound"
+goodSound.Parent = frame
+
+local badSound = Instance.new("Sound")
+badSound.Name = "BadDealSound"
+badSound.Parent = frame
+
+-- Transparency slider
+local sliderLabel = Instance.new("TextLabel")
+sliderLabel.Size = UDim2.new(0.5, -10, 0, 16)
+sliderLabel.Position = UDim2.new(0.5, 0, 1, -46)
+sliderLabel.BackgroundTransparency = 1
+sliderLabel.Text = "BG Transparency"
+sliderLabel.TextColor3 = Color3.new(1,1,1)
+sliderLabel.Font = Enum.Font.Gotham
+sliderLabel.TextSize = 12
+sliderLabel.TextXAlignment = Enum.TextXAlignment.Left
+sliderLabel.Parent = contentFrame
+
+local sliderBack = Instance.new("Frame")
+sliderBack.Size = UDim2.new(0.5, -10, 0, 10)
+sliderBack.Position = UDim2.new(0.5, 0, 1, -30)
+sliderBack.BackgroundColor3 = Color3.fromRGB(60,60,60)
+sliderBack.BorderSizePixel = 0
+sliderBack.Parent = contentFrame
+
+local sliderBackCorner = Instance.new("UICorner")
+sliderBackCorner.CornerRadius = UDim.new(0, 4)
+sliderBackCorner.Parent = sliderBack
+
+local sliderKnob = Instance.new("Frame")
+sliderKnob.Size = UDim2.new(0, 12, 0, 16)
+sliderKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+sliderKnob.Position = UDim2.new(1, 0, 0.5, 0) -- start at "fully transparent"
+sliderKnob.BackgroundColor3 = Color3.fromRGB(200,200,200)
+sliderKnob.BorderSizePixel = 0
+sliderKnob.Parent = sliderBack
+
+local sliderKnobCorner = Instance.new("UICorner")
+sliderKnobCorner.CornerRadius = UDim.new(0, 6)
+sliderKnobCorner.Parent = sliderKnob
+
+local transparencyValue = 1
+frame.BackgroundTransparency = transparencyValue
+
+local draggingSlider = false
+
+local function applyTransparencyFromX(xPos)
+    local absPos = sliderBack.AbsolutePosition.X
+    local absSize = sliderBack.AbsoluteSize.X
+    if absSize <= 0 then return end
+
+    local t = math.clamp((xPos - absPos) / absSize, 0, 1)
+    transparencyValue = t
+    frame.BackgroundTransparency = transparencyValue
+    sliderKnob.Position = UDim2.new(t, 0, 0.5, 0)
+end
+
+sliderBack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingSlider = true
+        applyTransparencyFromX(input.Position.X)
+    end
+end)
+
+sliderKnob.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingSlider = true
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingSlider and input.UserInputType == Enum.UserInputType.MouseMovement then
+        applyTransparencyFromX(input.Position.X)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingSlider = false
+    end
+end)
+
+----------------------------------------------------------
+-- COLLAPSE / EXPAND
+----------------------------------------------------------
+local collapsed = false
+
+local function setCollapsed(value)
+    collapsed = value
+    contentFrame.Visible = not collapsed
+    frame.Size = collapsed and UDim2.new(0, 360, 0, 30) or UDim2.new(0, 360, 0, 240)
+    collapseBtn.Text = collapsed and "+" or "-"
+end
+
+collapseBtn.MouseButton1Click:Connect(function()
+    setCollapsed(not collapsed)
+end)
+
+----------------------------------------------------------
+-- FIND CONFIRM BUY FRAME
+----------------------------------------------------------
+local function isConfirmBuyVisible()
+    local mainGui = playerGui:FindFirstChild("MainScreenGui")
+    if not mainGui then return false, nil end
+    local confirmFrame = mainGui:FindFirstChild("ConfirmBuyFrame")
+    if not confirmFrame then return false, nil end
+    return confirmFrame.Visible, confirmFrame
+end
+
+----------------------------------------------------------
+-- UPDATE LOOP
+----------------------------------------------------------
+local lastState = "N/A"  -- "cheaper", "expensive", "same", "nodata"
+
+local RunService = game:GetService("RunService")
+
+RunService.RenderStepped:Connect(function()
+    local visible, confirmFrame = isConfirmBuyVisible()
+    frame.Visible = visible
+
+    if not visible or not confirmFrame then
+        return
+    end
+
+    -- On very first time it appears and user has NOT moved the panel, snap near Yes button
+    if not userMoved then
+        local yesButton = confirmFrame:FindFirstChild("YesButton")
+        if yesButton then
+            frame.Position = UDim2.fromOffset(
+                yesButton.AbsolutePosition.X + yesButton.AbsoluteSize.X + 10,
+                yesButton.AbsolutePosition.Y - 10
+            )
+        end
+    end
+
+    local sneakerPriceText = confirmFrame:FindFirstChild("SneakerPriceText")
+    local sneakerNameText = confirmFrame:FindFirstChild("SneakerNameText")
+    if not sneakerPriceText or not sneakerNameText then
+        return
+    end
+
+    local sneakerPrice = parsePrice(sneakerPriceText.Text)
+    local sneakerName = sneakerNameText.Text
+
+    if not sneakerPrice or not sneakerName or sneakerName == "" then
+        sneakerLabel.Text = "Sneaker Price: N/A"
+        lastSaleLabel.Text = "Closest Last Sale: N/A"
+        comparisonLabel.Text = "Comparison: N/A"
+        comparisonLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        return
+    end
+
+    sneakerLabel.Text = "Sneaker Price: $" .. tostring(sneakerPrice)
+
+    local closestPrice = getClosestLastSale(sneakerName, sneakerPrice)
+    lastSaleLabel.Text = "Closest Last Sale: $" .. tostring(closestPrice or "N/A")
+
+    local state = "nodata"
+    local pctDiff = nil
+
+    if closestPrice and closestPrice > 0 then
+        local diff = sneakerPrice - closestPrice
+        local absDiff = math.abs(diff)
+        pctDiff = (absDiff / closestPrice) * 100
+
+        if pctDiff < 0.01 then
+            state = "same"
+        elseif diff > 0 then
+            state = "expensive"
+        else
+            state = "cheaper"
+        end
+    end
+
+    if state == "cheaper" then
+        local pctText = pctDiff and string.format("%.1f", pctDiff) or "?"
+        comparisonLabel.Text = "Cheaper: ~" .. pctText .. "% below last sale"
+        comparisonLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    elseif state == "expensive" then
+        local pctText = pctDiff and string.format("%.1f", pctDiff) or "?"
+        comparisonLabel.Text = "More expensive: ~" .. pctText .. "% above last sale"
+        comparisonLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    elseif state == "same" then
+        comparisonLabel.Text = "Roughly same as last sale"
+        comparisonLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+    else
+        comparisonLabel.Text = "Comparison: No data"
+        comparisonLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+
+    -- Add to history if applicable
+    addHistoryEntry(sneakerName, sneakerPrice, closestPrice, state, pctDiff)
+
+    -- Play sound when the state changes
+    if soundEnabled and state ~= lastState and closestPrice and closestPrice > 0 then
+        if state == "cheaper" and goodSound.SoundId ~= "" then
+            goodSound:Play()
+        elseif state == "expensive" and badSound.SoundId ~= "" then
+            badSound:Play()
+        end
+    end
+
+    lastState = state
+end)
+
+print("Price Comparison UI loaded.")
