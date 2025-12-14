@@ -1,0 +1,238 @@
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local localPlayer = Players.LocalPlayer
+
+local changeDisplayRemote = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("ChangeDisplaySneaker")
+local buyDisplayRemote = ReplicatedStorage:WaitForChild("RemoteEvents"):FindFirstChild("BuyDisplaySneakerEvent")
+local buyShoeLoopRemote = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("BuyShoesApp")
+
+----- SNEAKER DATA -----
+local presetSneakers = {
+    {label = "Mike Kobe 6 Grinch", full = "Mike Kobe 6 Grinch", default = 305000},
+    {label = "Mike Kobe 6 Reverse Grinch", full = "Mike Kobe 6 Reverse Grinch", default = 305000},
+    {label = "Air Bogdan 4 UNC", full = "Air Bogdan 4 UNC", default = 3000000},
+    {label = "Cool Grey 11", full = "Air Bogdan 11 Cool Grey", default = 5000000},
+    -- ... add as many as you want ...
+}
+local shoeMaxPrices = {}; for _, s in ipairs(presetSneakers) do shoeMaxPrices[s.full]=s.default end
+local function formatNumber(n)
+    n = math.floor(tonumber(n) or 0)
+    local s, sign = tostring(n), ""
+    if n < 0 then sign, s = "-", tostring(-n) end
+    local l = #s; local out = ""
+    for i = l, 1, -1 do out = s:sub(i,i)..out; if (l-i+1)%3==0 and i~=1 then out = ","..out end end
+    return sign..out
+end
+local function parseNumber(str)
+    if not str then return nil end
+    local cleaned = string.gsub(str, "[^%d]", "")
+    return tonumber(cleaned)
+end
+
+----- WINDOW + TABS -----
+local Window = Rayfield:CreateWindow({
+    Name = "GP6 + AutoBuy SuperGUI",
+    LoadingTitle = "AutoBuy/GP6",
+    LoadingSubtitle = "by KingRomelx",
+    ConfigurationSaving = {Enabled = false}
+})
+local tab_autobuy = Window:CreateTab("AutoBuy", 4483362458)
+local tab_gp6    = Window:CreateTab("GP6 Display", 6031280882)
+local tab_loop   = Window:CreateTab("Shoe Loop", 6035008762)
+local tab_debug  = Window:CreateTab("Debug/Util", 6034818373)
+
+----- AUTOBUY TAB -----
+tab_autobuy:CreateParagraph{Title = "Info",Content = "Type in search or pick a shoe below. Only ONE shoe cap visible at a time (Rayfield Classic limit for big lists)."}
+
+local autoBuy, oneDollarSnipe = false,false
+tab_autobuy:CreateToggle({Name="Auto Buy",CurrentValue=false,Callback=function(v)autoBuy=v end})
+tab_autobuy:CreateToggle({Name="Snipe $1",CurrentValue=false,Callback=function(v)oneDollarSnipe=v end})
+
+-- Pick-one for unlimited shoe count!
+local search, filtered, chosenIndex = "", {}, 1
+local options = {}; for i,info in ipairs(presetSneakers) do options[i]=info.label.." ["..info.full.."]" end
+local sec, sliderObj, inputObj
+
+local function showShoeUI(idx)
+    if sec and sec.Remove then sec:Remove() end
+    local info = presetSneakers[idx]
+    sec = tab_autobuy:CreateSection(info.label)
+    sliderObj = tab_autobuy:CreateSlider({
+        Name = info.full, Range={1,1000000000}, Increment=1000,
+        CurrentValue = shoeMaxPrices[info.full], SectionParent = sec,
+        Callback = function(v) shoeMaxPrices[info.full]=v end
+    })
+    sliderObj:Set(shoeMaxPrices[info.full])
+    inputObj = tab_autobuy:CreateInput({
+        Name="Set manually", PlaceholderText=formatNumber(info.default), RemoveTextAfterFocusLost=true, SectionParent=sec,
+        Callback=function(txt)
+            local v=parseNumber(txt)
+            if v then shoeMaxPrices[info.full]=v; pcall(function() sliderObj:Set(v) end) end
+        end
+    })
+end
+
+tab_autobuy:CreateInput({
+    Name = "Search Shoe", PlaceholderText = "Type any part of name...",
+    RemoveTextAfterFocusLost = false,
+    Callback = function(txt)
+        search = (txt or ""):lower()
+        filtered = {}
+        for idx,info in ipairs(presetSneakers) do
+            if info.label:lower():find(search,1,true) or info.full:lower():find(search,1,true) then
+                table.insert(filtered, idx)
+            end
+        end
+        if #filtered > 0 then chosenIndex = filtered[1]; showShoeUI(filtered[1]) end
+    end
+})
+tab_autobuy:CreateDropdown({
+    Name = "Pick Shoe", Options = options, CurrentOption = {options[1]},
+    Callback = function(opt)
+        for idx,txt in ipairs(options) do
+            if txt == opt[1] then chosenIndex=idx; showShoeUI(idx) end
+        end
+    end
+})
+showShoeUI(1)
+
+----- GP6 TAB -----
+local currentDisplayName,goodShoeValue,badShoeValue="DisplaySneaker2","Air Bogdan 4 Metallic Purple","Air Bogdan 4 Metallic Purple"
+local priceAValue,priceBValue,autoLoopGP6,autoLoopDelay,lowerPriceChance=1,1000000,false,1,50
+tab_gp6:CreateDropdown({Name="Target Display",Options={"DisplaySneaker1","DisplaySneaker2","DisplaySneaker3"},CurrentOption={"DisplaySneaker2"},Callback=function(opt)currentDisplayName=opt[1]end})
+tab_gp6:CreateInput({Name="Good Shoe Name",PlaceholderText=goodShoeValue,Callback=function(txt)if txt~=""then goodShoeValue=txt end end}):Set(goodShoeValue)
+tab_gp6:CreateInput({Name="Bad Shoe Name",PlaceholderText=badShoeValue,Callback=function(txt)if txt~=""then badShoeValue=txt end end}):Set(badShoeValue)
+tab_gp6:CreateInput({Name="Price A",PlaceholderText=tostring(priceAValue),Callback=function(txt)local n=parseNumber(txt)if n then priceAValue=n end end}):Set(tostring(priceAValue))
+tab_gp6:CreateInput({Name="Price B",PlaceholderText=tostring(priceBValue),Callback=function(txt)local n=parseNumber(txt)if n then priceBValue=n end end}):Set(tostring(priceBValue))
+tab_gp6:CreateButton({Name="Add GOOD (A)",Callback=function()changeDisplayRemote:FireServer(goodShoeValue,currentDisplayName,priceAValue)end})
+tab_gp6:CreateButton({Name="Add BAD (B)",Callback=function()changeDisplayRemote:FireServer(badShoeValue,currentDisplayName,priceBValue)end})
+tab_gp6:CreateButton({Name="Remove Shoe",Callback=function()changeDisplayRemote:FireServer("",currentDisplayName,0)end})
+tab_gp6:CreateToggle({Name="Auto Loop (alternate A/B)",CurrentValue=false,Callback=function(state)autoLoopGP6=state end})
+tab_gp6:CreateInput({Name="Auto Loop Delay (seconds)",PlaceholderText=tostring(autoLoopDelay),Callback=function(txt)local v=tonumber(txt)if v and v>0 then autoLoopDelay=v end end}):Set(tostring(autoLoopDelay))
+tab_gp6:CreateSlider({Name="Chance of GOOD (%)",Range={0,100},Increment=1,CurrentValue=lowerPriceChance,Callback=function(val)lowerPriceChance=val end})
+
+----- SHOE LOOP TAB -----
+local shoeLoop_looping, shoeLoop_minDelay, shoeLoop_shoeName = false, 0.2, "Air Bogdan 3 Pure Money"
+local shoeLoop_status = tab_loop:CreateParagraph({Title="Status",Content="Inactive"})
+tab_loop:CreateInput({Name="Shoe Name",PlaceholderText=shoeLoop_shoeName,Callback=function(txt)if txt~=""then shoeLoop_shoeName=txt end end}):Set(shoeLoop_shoeName)
+tab_loop:CreateToggle({Name = "Loop: OFF/ON", CurrentValue = false, Callback = function(val) shoeLoop_looping = val end})
+local function updateShoeLoopStatus(text) pcall(function() shoeLoop_status:Set({Content=text}) end) end
+
+----- DEBUG TAB -----
+local moneyESPEnabled, moneyESPConn = false, nil
+tab_debug:CreateToggle({Name="Enable Money ESP",CurrentValue=false,Callback=function(val)
+    moneyESPEnabled = val
+    if val then
+        if moneyESPConn then moneyESPConn:Disconnect() end
+        moneyESPConn = RunService.Heartbeat:Connect(function()
+            for _,player in ipairs(Players:GetPlayers()) do
+                local char = player.Character; if not char then continue end
+                local head = char:FindFirstChild("Head"); if not head then continue end
+                local bb = head:FindFirstChild("MoneyBillboard")
+                if not bb then
+                    bb = Instance.new("BillboardGui"); bb.Name = "MoneyBillboard"; bb.Size = UDim2.new(0,120,0,30)
+                    bb.StudsOffset = Vector3.new(0,4,0); bb.Adornee = head; bb.AlwaysOnTop = true; bb.Parent = head
+                    local label = Instance.new("TextLabel"); label.Name = "MoneyLabel"; label.Size = UDim2.new(1,0,1,0)
+                    label.BackgroundColor3 = Color3.new(0,0,0); label.BackgroundTransparency = 0.2
+                    label.TextColor3 = Color3.fromRGB(0,255,0); label.Font = Enum.Font.GothamBold; label.TextSize = 14
+                    label.Text = ""; label.Parent = bb
+                end
+                local label = bb and bb:FindFirstChild("MoneyLabel")
+                local leaderstats, cash = player:FindFirstChild("leaderstats")
+                if leaderstats then
+                    local candidates = {"Cash","Money","Coins","Bucks","Balance","MoneyValue"}
+                    for _,n in ipairs(candidates) do local v=leaderstats:FindFirstChild(n) if v and (v:IsA("IntValue") or v:IsA("NumberValue")) then cash = v.Value; break end end
+                    if not cash then for _,v in ipairs(leaderstats:GetChildren()) do if v:IsA("IntValue") or v:IsA("NumberValue") then cash = v.Value; break end end end
+                end
+                if label then label.Text = cash and formatNumber(cash) or "N/A" end
+            end
+        end)
+    else
+        if moneyESPConn then moneyESPConn:Disconnect(); moneyESPConn=nil end
+        for _,pl in ipairs(Players:GetPlayers()) do
+            local char = pl.Character
+            if char then
+                local head = char:FindFirstChild("Head")
+                if head then
+                    local bb = head:FindFirstChild("MoneyBillboard")
+                    if bb then bb:Destroy() end
+                end
+            end
+        end
+    end
+end})
+tab_debug:CreateButton({Name="Scan All Tables for Unique Sneakers",Callback=function()
+    local out, found = {}, {}
+    local tablesFolder = Workspace:FindFirstChild("Tables")
+    if not tablesFolder then Rayfield:Notify({Title="Tables not found!"}) return end
+    for _, tbl in ipairs(tablesFolder:GetChildren()) do
+        for i = 1, 3 do
+            local d = tbl:FindFirstChild("DisplaySneaker"..i)
+            if d and d:FindFirstChild("SneakerValue") then
+                local name = tostring(d.SneakerValue.Value)
+                if name ~= "" and not found[name] then table.insert(out, name) found[name] = true end
+            end
+        end
+    end
+    Rayfield:Notify({Title = "Unique Sneakers",Content = (#out > 0) and table.concat(out, "\n") or "None found"})
+end})
+
+----- BACKGROUND TASKS -----
+task.spawn(function()
+    while true do
+        task.wait(0.24)
+        if autoBuy then
+            local tablesFolder = Workspace:FindFirstChild("Tables")
+            if not tablesFolder or not buyDisplayRemote then continue end
+            for _, tbl in ipairs(tablesFolder:GetChildren()) do
+                for i = 1,3 do
+                    local display = tbl:FindFirstChild("DisplaySneaker"..i)
+                    if display and display:FindFirstChild("SneakerValue") and display:FindFirstChild("Price") then
+                        local shoeName = display.SneakerValue.Value
+                        local price = display.Price.Value
+                        local cap = shoeMaxPrices[shoeName]
+                        if oneDollarSnipe and price == 1 then 
+                            buyDisplayRemote:FireServer(display, shoeName, price)
+                        elseif price == 1 then
+                            if cap and cap <= 1 then buyDisplayRemote:FireServer(display, shoeName, price) end
+                        elseif cap and price <= cap then
+                            buyDisplayRemote:FireServer(display, shoeName, price)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        if autoLoopGP6 then
+            local good,bad=goodShoeValue,(badShoeValue~=""and badShoeValue or goodShoeValue)
+            local a,b=priceAValue,priceBValue
+            if not good or good=="" then good="Air Bogdan 4 Metallic Purple" end
+            if not bad or bad=="" then bad=good end
+            local useLower = math.random() < (lowerPriceChance / 100)
+            local tarPrice = useLower and a or b
+            local tarName = useLower and good or bad
+            changeDisplayRemote:FireServer(tarName,currentDisplayName,tarPrice)
+            task.wait(autoLoopDelay)
+            changeDisplayRemote:FireServer("",currentDisplayName,0)
+            task.wait(autoLoopDelay)
+        end
+    end
+end)
+task.spawn(function()
+    while true do
+        task.wait(shoeLoop_minDelay)
+        if shoeLoop_looping and shoeLoop_shoeName ~= "" then
+            updateShoeLoopStatus("Looping: "..shoeLoop_shoeName)
+            pcall(function() buyShoeLoopRemote:InvokeServer(shoeLoop_shoeName) end)
+        else
+            updateShoeLoopStatus("Inactive")
+        end
+    end
+end)
