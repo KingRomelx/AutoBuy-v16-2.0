@@ -43,7 +43,7 @@ local presetSneakers = {
     {label = "Fear 4", full = "Air Bogdan 4 Fear", default = 24800000},
     {label = "Crenshaw SB", full = "Mike SB Dunk Low Crenshaw", default = 20800000},
     {label = "TS Olive 1 Low", full = "Air Bogdan 1 Low Trevor Olive", default = 20200000},
-    {label = "Red Lobster SB", full = "Mike SB Dunk Low Red Lobster", default = 21000000},
+    {label = "Red Lobster SB", full = "Mike SB Dunk Low Red Lobster", default = 18800000},
     {label = "Pale Ivory SB", full = "Mike SB Dunk Low Pale Ivory", default = 15800000},
     {label = "Baroque Brown 1 High", full = "Air Bogdan 1 High Baroque Brown", default = 15100000},
     {label = "Tiffany AF1", full = "Mike Air Force 1 Tiffany", default = 15000000},
