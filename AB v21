@@ -1,0 +1,288 @@
+local repo='https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library=loadstring(game:HttpGet(repo..'Library.lua'))()
+local ThemeManager=loadstring(game:HttpGet(repo..'addons/ThemeManager.lua'))()
+local SaveManager=loadstring(game:HttpGet(repo..'addons/SaveManager.lua'))()
+local Players=game:GetService("Players")
+local ReplicatedStorage=game:GetService("ReplicatedStorage")
+local RunService=game:GetService("RunService")
+local Workspace=game:GetService("Workspace")
+local UserInputService=game:GetService("UserInputService")
+local changeDisplayRemote=ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("ChangeDisplaySneaker")
+local buyDisplayRemote=ReplicatedStorage:WaitForChild("RemoteEvents"):FindFirstChild("BuyDisplaySneakerEvent")
+local buyShoeLoopRemote=ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("BuyShoesApp")
+local function formatNumber(n)n=math.floor(tonumber(n)or 0)local s,sign=tostring(n),""if n<0 then sign,s="-",tostring(-n)end local l=#s;local out=""for i=l,1,-1 do out=s:sub(i,i)..out;if(l-i+1)%3==0 and i~=1 then out=","..out end end return sign..out end
+local function parseNumber(str)if not str then return nil end local cleaned=string.gsub(str,"[^%d]","")return tonumber(cleaned)end
+local presetSneakers={
+{label="Air Bogdan 4 SB Navy",full="Air Bogdan 4 SB Navy",default=2400000}, -- Added!
+{label="Gold Grocs",full="Gold Grocs",default=200000000},{label="Air Bogdan 4 On-White Sail",full="Air Bogdan 4 On-White Sail",default=180000000},{label="Panda-Monium",full="Mike Dunk Low Panda-Monium Multi Color",default=110000000},{label="Zebra 350",full="Adios Zeezy Boost 350 Zebra",default=87000000},{label="On-White UNC 1",full="Air Bogdan 1 High On-White UNC",default=65000000},{label="On-White Chicago 1 High",full="Air Bogdan 1 High On-White Chicago",default=65000000},{label="Orchid 4",full="Air Bogdan 4 Orchid",default=55000000},{label="Pearl 11",full="Air Bogdan 11 Pearl",default=41800000},{label="Nigel 4",full="Air Bogdan 4 Nigel",default=34000000},{label="Mike Air Nag",full="Mike Air Nag",default=32000000},{label="ST Max 1",full="Mike Air Max 1 Stranger Things",default=30000000},{label="Wet Cement 4",full="Air Bogdan 4 Wet Cement",default=28000000},{label="A Ma Maniere 4",full="Air Bogdan 4 A Ma Maniere",default=24800000},{label="Fear 4",full="Air Bogdan 4 Fear",default=24800000},{label="Crenshaw SB",full="Mike SB Dunk Low Crenshaw",default=20800000},{label="TS Olive 1 Low",full="Air Bogdan 1 Low Trevor Olive",default=20200000},{label="Red Lobster SB",full="Mike SB Dunk Low Red Lobster",default=21000000},{label="Pale Ivory SB",full="Mike SB Dunk Low Pale Ivory",default=15800000},{label="Baroque Brown 1 High",full="Air Bogdan 1 High Baroque Brown",default=15100000},{label="Tiffany AF1",full="Mike Air Force 1 Tiffany",default=15000000},{label="TS Mocha 1 Low",full="Air Bogdan 1 Low Trevor Mocha",default=16400000},{label="Cactus Jack SB",full="Mike SB Dunk Low Cactus Jack",default=14100000},{label="Carrot Grocs",full="Carrot Grocs",default=12200000},{label="ComplexCon AF1",full="On-White Air Force 1 ComplexCon Exclusive",default=10000000},{label="Chicago 1",full="Air Bogdan 1 Chicago",default=9600000},{label="Buttercup SB",full="Mike SB Dunk Low Buttercup",default=8200000},{label="Blossom SB",full="Mike SB Dunk Low Blossom",default=8700000},{label="LV AF1 Monogram",full="Ivie Yuitton Air Force 1 Monogram Damier",default=7300000},{label="Emenem Carhartt 4",full="Air Bogdan 4 Emenem Carhartt",default=7000000},{label="Bone 350",full="Adios Zeezy Boost 350 Bone",default=7000000},{label="Pine Green SB 4",full="Air Bogdan 4 SB Pine Green",default=7000000},{label="Bubbles SB",full="Mike SB Dunk Low Bubbles",default=7800000},{label="StrangeLove SB",full="Mike SB Dunk Low StrangeLove",default=6000000},{label="Cool Grey 11",full="Air Bogdan 11 Cool Grey",default=5000000},{label="Cherry 11",full="Air Bogdan 11 Cherry",default=5000000},{label="TS Phantom 1 Low",full="Air Bogdan 1 Low Trevor Phantom",default=6200000},{label="Shrek Grocs",full="Shrek Grocs",default=5500000},{label="Retro Lightning 4",full="Air Bogdan 4 Retro Lightning",default=410000},{label="TS 4",full="Air Bogdan 4 Trevor Scott",default=2300000},{label="Spiderverse 1 High",full="Air Bogdan 1 High Spiderverse",default=2300000},{label="Pigeon SB",full="Mike SB Dunk Low Pigeon",default=10200000},{label="On-White Black AF1",full="On-White Air Force 1 Black",default=400000},{label="Fragment 1 High TS",full="Air Bogdan 1 High Trevor Fragment",default=600000},{label="TS Reverse Mocha 1 Low",full="Air Bogdan 1 Low Trevor Reverse Mocha",default=450000},{label="Big Red Boots",full="Big Red Boots",default=5900000},{label="Motorsport 4",full="Air Bogdan 4 Motorsport",default=140000},{label="Lot 50/50",full="On-White Dunk Low Lot 50 of 50",default=380000},{label="Toy Story Grocs",full="Toy Story Grocs",default=380000},{label="Mater Grocs",full="Mater Grocs",default=415000},{label="TS Utopia AF1",full="Mike Air Force 1 Trevor Scott Utopia",default=120000},{label="Setsubun Dunks",full="Mike Dunk Low Setsubun",default=100000},{label="Skeleton AF1",full="Mike Air Force 1 Skeleton",default=110000},{label="Chunky Dunky SB",full="Mike SB Dunk Low Chunky Dunky",default=1000000},{label="TS Baroque Brown Max",full="Mike Air Max Trevor Scott Baroque Brown",default=950000},{label="Beluga 350",full="Adios Zeezy Boost 350 Beluga",default=100000},{label="Big Yellow Boots",full="Big Yellow Boots",default=500000},{label="TS x PS5 Dunks",full="Mike Dunk Low Trevor Scoot x PlayStation",default=1000000},{label="Vomero 5 PT",full="Mike Vomero 5 Platinum Tint",default=500000},{label="PSG 4s",full="Air Bogdan 4 PSG",default=1000000},{label="Raging Bull 5 Red",full="Air Bogdan 5 Raging Bull Red",default=110000},{label="360 Black Static",full="Adios Zeezy Boost 360 Black Static",default=300000},{label="Adios Copas",full="Adios Copa Mundial",default=500000},{label="Black Metallic 5",full="Air Bogdan 5 Black Metallic",default=210000},{label="Mike Kobe 6 Reverse Grinch",full="Mike Kobe 6 Reverse Grinch",default=305000},{label="Air Bogdan 1 Low Bior",full="Air Bogdan 1 Low Bior",default=420000},{label="Air Bogdan 1 High Bior",full="Air Bogdan 1 High Bior",default=500000},{label="Mil Blue 4s",full="Air Bogdan 4 Military Blue",default=200000},{label="Air Bogdan 4 UNC",full="Air Bogdan 4 UNC",default=3000000},{label="IY Trainer W/B",full="Ivie Yuitton Air Force 1 Monogram Damier",default=1000000},{label="Black Static 350",full="Adios Zeezy Boost 350 Black Static",default=290000},{label="One Block Down Plus",full="Air Max Plus One Block Down Blue",default=500000},{label="Craft Olive 4",full="Air Bogdan 4 Craft Medium Olive",default=100000},{label="Concord 11",full="Air Bogdan 11 Concord",default=125000},{label="Mike Kobe 6 Grinch",full="Mike Kobe 6 Grinch",default=305000},{label="Lightning McQueen Grocs",full="Lightning McQueen Grocs",default=500000}
+}
+table.sort(presetSneakers,function(a,b)return a.default > b.default end)
+local shoeMaxPrices={}for _,s in ipairs(presetSneakers)do shoeMaxPrices[s.full]=s.default end
+
+local Window=Library:CreateWindow({Title='GP6 + AutoBuy SuperGUI',Center=true,AutoShow=true,TabPadding=8,MenuFadeTime=0.2})
+local Tabs={
+    AutoBuy=Window:AddTab('Shoe AutoBuy'),
+    GP6=Window:AddTab('GP6 Display'),
+    Loop=Window:AddTab('Shoe Loop'),
+    Debug=Window:AddTab('Debug/Util'),
+    ['UI Settings']=Window:AddTab('UI Settings')
+}
+local searchGroup=Tabs.AutoBuy:AddLeftGroupbox("Shoe Search")
+local searchBox=searchGroup:AddInput("SearchShoe",{Default='',Text='Search Shoe (name/full, partial ok)',Placeholder='Ex: Grocs',Callback=function()end})
+local searchResultLabel=searchGroup:AddLabel("Match: ")
+local searchSlider,searchInput
+local function clearSearchResults() if searchSlider then searchSlider:Remove();searchSlider=nil end if searchInput then searchInput:Remove();searchInput=nil end end
+searchBox:OnChanged(function(val) local found=nil for _,info in ipairs(presetSneakers)do if info.label:lower():find(val:lower(),1,true) or info.full:lower():find(val:lower(),1,true) then found=info;break end end clearSearchResults() if found then searchResultLabel:SetText("Match: "..found.label) searchSlider=searchGroup:AddSlider('SSlider_'..found.full,{Text=found.full,Default=shoeMaxPrices[found.full],Min=1,Max=1e9,Rounding=0,Callback=function(v)shoeMaxPrices[found.full]=v end}) searchInput=searchGroup:AddInput('SInput_'..found.full,{Default=formatNumber(found.default),Numeric=true,Finished=true,Text='Set manually',Placeholder=formatNumber(found.default),Callback=function(val)local v=parseNumber(val)if v then shoeMaxPrices[found.full]=v;searchSlider:SetValue(v)end end}) else searchResultLabel:SetText('No match.') end end)
+local autoBuy,oneDollarSnipe=false,false
+local SHOES_PER_GROUP=15
+local nShoes=#presetSneakers
+local nGroups=math.ceil(nShoes/SHOES_PER_GROUP)
+for group=1,nGroups do
+local iStart=(group-1)*SHOES_PER_GROUP+1
+local iEnd=math.min(nShoes,group*SHOES_PER_GROUP)
+local gb=Tabs.AutoBuy:AddLeftGroupbox(("Shoes %d-%d"):format(iStart,iEnd))
+if group==1 then
+gb:AddToggle('AutoBuy',{Text='AutoBuy',Default=false,Callback=function(v)autoBuy=v end})
+gb:AddToggle('Snipe1',{Text='$1 Snipe',Default=false,Callback=function(v)oneDollarSnipe=v end})
+gb:AddDivider()
+end
+for i=iStart,iEnd do
+local info=presetSneakers[i]
+gb:AddLabel(info.label.." | "..info.full)
+gb:AddSlider('Slider_'..info.full,{Text='Max buy price',Default=shoeMaxPrices[info.full],Min=1,Max=1e9,Rounding=0,Callback=function(v)shoeMaxPrices[info.full]=v end})
+gb:AddInput('Input_'..info.full,{Default=formatNumber(info.default),Numeric=true,Finished=true,Text='Set manually',Placeholder=formatNumber(info.default),Callback=function(val)local v=parseNumber(val)if v then shoeMaxPrices[info.full]=v;Options['Slider_'..info.full]:SetValue(v)end end})
+gb:AddDivider()
+end
+end
+
+-- === CUSTOM BUY BLOCK (as toggle, beside) ===
+local customBuyBox = Tabs.AutoBuy:AddRightGroupbox("Custom Buy")
+local customShoeList = {"None"}
+for _,s in ipairs(presetSneakers)do table.insert(customShoeList,s.full) end
+table.sort(customShoeList,function(a,b)if a=="None" then return true elseif b=="None" then return false else return a<b end end)
+local customShoeText = ""
+local customBuySelected = "None"
+local customPrice = 1
+local customBuyToggle = false
+local customBuyDelay = 0.25
+customBuyBox:AddDropdown('CustomBuyShoe',{Values=customShoeList, Default=1, Text="Shoe (dropdown)",Callback=function(v)customBuySelected=v;customShoeText=v=="None" and "" or v;if Options.CustomBuyText then Options.CustomBuyText:SetValue(customShoeText)end end})
+customBuyBox:AddInput('CustomBuyText',{Default="", Text="Shoe (custom text)", Placeholder="Paste or type any shoe name",Callback=function(v)customShoeText=v end})
+customBuyBox:AddInput('CustomBuyPrice',{Default="1", Text="Buy Price", Numeric=true, Placeholder="Enter price",Callback=function(val)local v=parseNumber(val)if v and v>0 then customPrice=v end end})
+customBuyBox:AddToggle('CustomBuyToggle',{Text='Custom Buy (loop)',Default=false,Callback=function(v)customBuyToggle=v end})
+customBuyBox:AddLabel('Keybind:'):AddKeyPicker('CustomBuyKeybind',{Default='K', Text='Custom Buy Key', Mode='Always', NoUI=false})
+
+-- << FIXED CustomBuy: Scans tables just like AutoBuy >>
+local function tryCustomBuy()
+    local shoeName = customShoeText ~= "" and customShoeText or (customBuySelected ~= "None" and customBuySelected or nil)
+    local priceWanted = tonumber(customPrice) or 1
+    if not shoeName or shoeName=="None" or not priceWanted or not buyDisplayRemote then return end
+
+    local tablesFolder = Workspace:FindFirstChild("Tables")
+    if not tablesFolder then return end
+    for _,tbl in ipairs(tablesFolder:GetChildren())do
+        for i=1,3 do
+            local display = tbl:FindFirstChild("DisplaySneaker"..i)
+            if display and display:FindFirstChild("SneakerValue") and display:FindFirstChild("Price") then
+                local sneakerValue = tostring(display.SneakerValue.Value)
+                local price = tonumber(display.Price.Value)
+                if sneakerValue:lower() == shoeName:lower() and price <= priceWanted then
+                    buyDisplayRemote:FireServer(display, sneakerValue, price)
+                end
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(customBuyDelay)
+        if customBuyToggle then
+            tryCustomBuy()
+        end
+    end
+end)
+
+local gb_gp6 = Tabs.GP6:AddLeftGroupbox('GP6 Controls')
+local gb_gp6_dd = Tabs.GP6:AddRightGroupbox('Quick Shoe Picker')
+local allShoeNamesSorted = {"None"}
+for _,s in ipairs(presetSneakers)do table.insert(allShoeNamesSorted,s.full) end
+table.sort(allShoeNamesSorted, function(a,b)
+    if a=="None" then return true elseif b=="None" then return false else return a<b end
+end)
+local currentDisplayName = "DisplaySneaker2"
+local goodShoeValue = allShoeNamesSorted[1]
+local badShoeValue = allShoeNamesSorted[1]
+local priceAValue, priceBValue, autoLoopGP6, autoLoopDelay, lowerPriceChance = 1, 1000000, false, 1, 50
+
+gb_gp6:AddInput('DispName', {Default="DisplaySneaker2", Text='Target Display', Callback=function(val) currentDisplayName=val end})
+gb_gp6:AddInput('PriceA',   {Default='1', Text='Price A', Numeric=true, Callback=function(val) priceAValue=parseNumber(val) end})
+gb_gp6:AddInput('PriceB',   {Default='1000000', Text='Price B', Numeric=true, Callback=function(val) priceBValue=parseNumber(val) end})
+
+gb_gp6_dd:AddDropdown('GP6GoodName', {Values=allShoeNamesSorted,Default=1,Text='Good Shoe Name (dropdown)',Callback=function(v)goodShoeValue=v end})
+gb_gp6_dd:AddDropdown('GP6BadName', {Values=allShoeNamesSorted,Default=1,Text='Bad Shoe Name (dropdown)',Callback=function(v)badShoeValue=v end})
+
+local btnAddGood=gb_gp6:AddButton('Add Good',function()
+    if goodShoeValue ~= "None" then
+        changeDisplayRemote:FireServer(goodShoeValue,currentDisplayName,priceAValue)
+    end
+end)
+gb_gp6:AddLabel('Keybind:'):AddKeyPicker('GoodKeybind',{Default='G',Text='Good Shoe Keybind',Mode='Always',NoUI=false})
+local btnAddBad=gb_gp6:AddButton('Add Bad',function()
+    if badShoeValue ~= "None" then
+        changeDisplayRemote:FireServer(badShoeValue,currentDisplayName,priceBValue)
+    end
+end)
+gb_gp6:AddLabel('Keybind:'):AddKeyPicker('BadKeybind',{Default='J',Text='Bad Shoe Keybind',Mode='Always',NoUI=false})
+local btnClear=gb_gp6:AddButton('Clear (duplicate)',function()changeDisplayRemote:FireServer('',currentDisplayName,0)end)
+gb_gp6:AddLabel('Clear Key:'):AddKeyPicker('ClearKeybind',{Default='H',Text='Clear Keybind',Mode='Always',NoUI=false})
+
+local function getKey(opt)
+    local v=opt and opt.Value
+    if type(v)=="string"then return v end
+    if type(v)=="table" then return v[1] end
+    return nil
+end
+
+UserInputService.InputBegan:Connect(function(input,gp)
+    if gp then return end
+    local goodKey=getKey(Options.GoodKeybind)
+    local badKey=getKey(Options.BadKeybind)
+    local clearKey=getKey(Options.ClearKeybind)
+    if goodKey and input.KeyCode.Name==goodKey and goodShoeValue ~= "None" then
+        changeDisplayRemote:FireServer(goodShoeValue,currentDisplayName,priceAValue)
+    end
+    if badKey and input.KeyCode.Name==badKey and badShoeValue ~= "None" then
+        changeDisplayRemote:FireServer(badShoeValue,currentDisplayName,priceBValue)
+    end
+    if clearKey and input.KeyCode.Name==clearKey then
+        changeDisplayRemote:FireServer('',currentDisplayName,0)
+    end
+    local v=Options.CustomBuyKeybind and Options.CustomBuyKeybind.Value
+    local ck
+    if type(v)=="string" then ck=v elseif type(v)=="table" then ck=v[1] end
+    if ck and input.KeyCode.Name==ck then tryCustomBuy() end
+end)
+
+gb_gp6:AddToggle('AutoLoopGP6',{Text='Auto Loop A/B',Default=false,Callback=function(v) autoLoopGP6=v end})
+gb_gp6:AddInput('AutoLoopDelay',{Default='1',Text='Loop Delay (s)',Numeric=true,Callback=function(txt)local v=tonumber(txt)if v and v>0 then autoLoopDelay=v end end})
+gb_gp6:AddSlider('GP6Chance',{Text='Chance Good (%)',Default=50,Min=0,Max=100,Rounding=0,Callback=function(val)lowerPriceChance=val end})
+
+local shoeLoop_looping,shoeLoop_minDelay,shoeLoop_shoeName=false,0.2,"Air Bogdan 3 Pure Money"
+local gb_loop=Tabs.Loop:AddLeftGroupbox('Shoe Loop')
+local shoeLoop_status=gb_loop:AddLabel('Inactive')
+gb_loop:AddInput('LoopShoe',{Default="Air Bogdan 3 Pure Money",Text="Shoe Name",Callback=function(txt)shoeLoop_shoeName=txt end})
+gb_loop:AddToggle('LoopToggle',{Text='ON/OFF',Default=false,Callback=function(val)shoeLoop_looping=val end})
+local function updateShoeLoopStatus(t)shoeLoop_status:SetText(tostring(t))end
+
+local gb_debug=Tabs.Debug:AddLeftGroupbox('Debug/Util')
+local moneyESPEnabled,moneyESPConn=false,nil
+gb_debug:AddToggle('MoneyESP',{Text="Enable Money ESP",Default=false,Callback=function(val)moneyESPEnabled=val if val then if moneyESPConn then moneyESPConn:Disconnect()end moneyESPConn=RunService.Heartbeat:Connect(function()for _,player in ipairs(Players:GetPlayers())do local char=player.Character;if not char then continue end local head=char:FindFirstChild("Head");if not head then continue end local bb=head:FindFirstChild("MoneyBillboard") if not bb then bb=Instance.new("BillboardGui");bb.Name="MoneyBillboard";bb.Size=UDim2.new(0,120,0,30) bb.StudsOffset=Vector3.new(0,4,0);bb.Adornee=head;bb.AlwaysOnTop=true;bb.Parent=head local label=Instance.new("TextLabel");label.Name="MoneyLabel";label.Size=UDim2.new(1,0,1,0) label.BackgroundColor3=Color3.new(0,0,0);label.BackgroundTransparency=0.2 label.TextColor3=Color3.fromRGB(0,255,0);label.Font=Enum.Font.GothamBold;label.TextSize=14 label.Text="";label.Parent=bb end local label=bb and bb:FindFirstChild("MoneyLabel") local leaderstats,cash=player:FindFirstChild("leaderstats") if leaderstats then local candidates={"Cash","Money","Coins","Bucks","Balance","MoneyValue"} for _,n in ipairs(candidates)do local v=leaderstats:FindFirstChild(n)if v and(v:IsA("IntValue")or v:IsA("NumberValue"))then cash=v.Value;break end end if not cash then for _,v in ipairs(leaderstats:GetChildren())do if v:IsA("IntValue")or v:IsA("NumberValue")then cash=v.Value;break end end end end if label then label.Text=cash and formatNumber(cash)or"N/A"end end end)else if moneyESPConn then moneyESPConn:Disconnect();moneyESPConn=nil end for _,pl in ipairs(Players:GetPlayers())do local char=pl.Character;if char then local head=char:FindFirstChild("Head") if head then local bb=head:FindFirstChild("MoneyBillboard")if bb then bb:Destroy()end end end end end end})
+gb_debug:AddButton('Scan Table Sneakers',function()local out,found={},{}local tablesFolder=Workspace:FindFirstChild("Tables")if not tablesFolder then Library:Notify('Tables not found!')return end for _,tbl in ipairs(tablesFolder:GetChildren())do for i=1,3 do local d=tbl:FindFirstChild("DisplaySneaker"..i)if d and d:FindFirstChild("SneakerValue")then local name=tostring(d.SneakerValue.Value)if name~=""and not found[name]then table.insert(out,name)found[name]=true end end end end Library:Notify((#out>0)and table.concat(out,"\n")or"None found")end)
+
+local playerCountLabel = gb_debug:AddLabel("Players in server: ...")
+task.spawn(function()
+    while true do
+        playerCountLabel:SetText("Players in server: "..tostring(#Players:GetPlayers()))
+        task.wait(0.5)
+    end
+end)
+
+task.spawn(function()while true do task.wait(0.24)if autoBuy then local tablesFolder=Workspace:FindFirstChild("Tables")if not tablesFolder or not buyDisplayRemote then continue end for _,tbl in ipairs(tablesFolder:GetChildren())do for i=1,3 do local display=tbl:FindFirstChild("DisplaySneaker"..i)if display and display:FindFirstChild("SneakerValue")and display:FindFirstChild("Price")then local shoeName=display.SneakerValue.Value local price=display.Price.Value local cap=shoeMaxPrices[shoeName]if oneDollarSnipe and price==1 then buyDisplayRemote:FireServer(display,shoeName,price)elseif price==1 then if cap and cap<=1 then buyDisplayRemote:FireServer(display,shoeName,price)end elseif cap and price<=cap then buyDisplayRemote:FireServer(display,shoeName,price)end end end end end end end)
+task.spawn(function()while true do task.wait(0.2)if autoLoopGP6 then local good,bad=goodShoeValue,(badShoeValue~=""and badShoeValue or goodShoeValue)local a,b=priceAValue,priceBValue if not good or good==""then good=allShoeNamesSorted[1]end if not bad or bad==""then bad=allShoeNamesSorted[1]end local useLower=math.random()<(lowerPriceChance/100)local tarPrice=useLower and a or b local tarName=useLower and good or bad if tarName~="None" then changeDisplayRemote:FireServer(tarName,currentDisplayName,tarPrice) end task.wait(autoLoopDelay);changeDisplayRemote:FireServer("",currentDisplayName,0)task.wait(autoLoopDelay)end end end)
+task.spawn(function()while true do task.wait(shoeLoop_minDelay)if shoeLoop_looping and shoeLoop_shoeName~=""then updateShoeLoopStatus("Looping: "..shoeLoop_shoeName)pcall(function()buyShoeLoopRemote:InvokeServer(shoeLoop_shoeName)end)else updateShoeLoopStatus("Inactive")end end end)
+local MenuGroup=Tabs['UI Settings']:AddLeftGroupbox('Menu')
+MenuGroup:AddButton('Unload',function()Library:Unload()end)
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind',{Default='End',NoUI=true,Text='Menu keybind'})
+Library.ToggleKeybind=Options.MenuKeybind
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({'MenuKeybind'})
+ThemeManager:SetFolder('KingRomelx')
+SaveManager:SetFolder('KingRomelx/specific-game')
+SaveManager:BuildConfigSection(Tabs['UI Settings'])
+ThemeManager:ApplyToTab(Tabs['UI Settings'])
+SaveManager:LoadAutoloadConfig()
+
+local showPowerCount = false
+local PowerCountGui, PowerTextLabel
+MenuGroup:AddToggle('ShowPowerCount', {
+    Text = 'Show Power Count',
+    Default = false,
+    Callback = function(val)
+        showPowerCount = val
+        if val then
+            if not PowerCountGui then
+                PowerCountGui = Instance.new("ScreenGui")
+                PowerCountGui.Name = "PowerCountCounter"
+                PowerCountGui.ResetOnSpawn = false
+                PowerCountGui.IgnoreGuiInset = true
+                PowerCountGui.Parent = game:GetService("CoreGui")
+
+                local frame = Instance.new("Frame")
+                frame.Name = "PowerCountFrame"
+                frame.Size = UDim2.new(0, 200, 0, 40)
+                frame.Position = UDim2.new(1, -220, 0, 20)
+                frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+                frame.BackgroundTransparency = 0.15
+                frame.BorderSizePixel = 0
+                frame.Active = true
+                frame.Draggable = true
+                frame.Parent = PowerCountGui
+
+                PowerTextLabel = Instance.new("TextLabel")
+                PowerTextLabel.Name = "PowerCountLbl"
+                PowerTextLabel.Size = UDim2.new(1,0,1,0)
+                PowerTextLabel.BackgroundTransparency = 1
+                PowerTextLabel.TextColor3 = Color3.fromRGB(255,215,80)
+                PowerTextLabel.TextStrokeTransparency = 0.7
+                PowerTextLabel.Font = Enum.Font.GothamBold
+                PowerTextLabel.TextSize = 20
+                PowerTextLabel.Text = "Powers in server: ???"
+                PowerTextLabel.Parent = frame
+
+                local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+                local dragging, dragInput, dragStart, startPos
+                frame.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging = true
+                        dragStart = input.Position
+                        startPos = frame.Position
+                    end
+                end)
+                frame.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging = false
+                    end
+                end)
+                frame.InputChanged:Connect(function(input)
+                    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                        local delta = input.Position - dragStart
+                        frame.Position = UDim2.new(
+                            startPos.X.Scale, startPos.X.Offset + delta.X,
+                            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                        )
+                    end
+                end)
+            else
+                PowerCountGui.Enabled = true
+            end
+        else
+            if PowerCountGui then PowerCountGui.Enabled = false end
+        end
+    end
+})
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if showPowerCount and PowerTextLabel then
+            local powerCount = 0
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj.Name:lower():find("power") then
+                    powerCount = powerCount + 1
+                end
+            end
+            PowerTextLabel.Text = "Powers in server: " .. tostring(powerCount)
+        end
+    end
+end)
