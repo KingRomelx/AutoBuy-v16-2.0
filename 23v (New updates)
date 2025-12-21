@@ -96,7 +96,7 @@ local function customModal(shoe, price)
 end
 
 local presetSneakers={ -- 52 SHOES
-{label="Air Bogdan 4 SB Navy",full="Air Bogdan 4 SB Navy",default=2400000},
+{label="Air Bogdan 4 SB Navy",full="Air Bogdan 4 SB Navy",default=1700000},
 {label="Gold Grocs",full="Gold Grocs",default=200000000},
 {label="Air Bogdan 4 On-White Sail",full="Air Bogdan 4 On-White Sail",default=180000000},
 {label="Panda-Monium",full="Mike Dunk Low Panda-Monium Multi Color",default=110000000},
