@@ -1,4 +1,183 @@
 --[[=====================================================================================
+BLOCK 1/6: MASTER SHOE LIST (ALL USER+DEFAULT SHOES, ~90 ENTRIES), INIT, GLOBALS
+======================================================================================]]
+
+local repo='https://raw.githubusercontent.com/violin-suzutsuki/LinoriaLib/main/'
+local Library=loadstring(game:HttpGet(repo..'Library.lua'))()
+local ThemeManager=loadstring(game:HttpGet(repo..'addons/ThemeManager.lua'))()
+local SaveManager=loadstring(game:HttpGet(repo..'addons/SaveManager.lua'))()
+local Players=game:GetService("Players")
+local ReplicatedStorage=game:GetService("ReplicatedStorage")
+local RunService=game:GetService("RunService")
+local Workspace=game:GetService("Workspace")
+local UserInputService=game:GetService("UserInputService")
+local TweenService=game:GetService("TweenService")
+
+local httpService
+local status, mod = pcall(function() return game:GetService("HttpService") end)
+if status and mod then httpService = mod end
+
+local changeDisplayRemote = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("ChangeDisplaySneaker")
+local buyDisplayRemote = ReplicatedStorage:WaitForChild("RemoteEvents"):FindFirstChild("BuyDisplaySneakerEvent")
+local buyShoeLoopRemote = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("BuyShoesApp")
+
+local function formatNumber(n)
+    n=math.floor(tonumber(n)or 0)
+    local s,sign=tostring(n),""
+    if n<0 then sign,s="-",tostring(-n) end
+    local l=#s; local out=""
+    for i=l,1,-1 do
+        out=s:sub(i,i)..out
+        if(l-i+1)%3==0 and i~=1 then out=","..out end
+    end
+    return sign..out
+end
+local function parseNumber(str)
+    if not str then return nil end
+    local cleaned=string.gsub(str,"[^%d]","")
+    return tonumber(cleaned)
+end
+
+local purchaseLog = {}
+local totalSpent = 0
+local totalProfit = 0
+local function logPurchase(shoe, price, time, sell, profit)
+    local entry = {
+        name = tostring(shoe or "?"),
+        price = tonumber(price) or 0,
+        timestamp = time or os.date("%I:%M:%S %p"),
+        sell = sell and true or false,
+        profit = profit
+    }
+    table.insert(purchaseLog, 1, entry)
+    if not sell then
+        totalSpent = totalSpent + entry.price
+    elseif profit then
+        totalProfit = totalProfit + profit
+    end
+    while #purchaseLog > 200 do table.remove(purchaseLog) end
+end
+
+local blacklist = {}
+
+local function isBlacklisted(shoeName)
+    for _,val in ipairs(blacklist) do
+        if val:lower() == shoeName:lower() then return true end
+    end
+    return false
+end
+
+-- *** MASTER SHOE LIST (ALL USER/OG/DEFAULT/RARE/SPECIALS) ***
+local presetSneakers = {
+    -- ~90 SHOES — EVERY KNOWN USER, OG, RARE, EVENT, BLACKLIST, ETC.
+    -- (duplicates removed; case matched for most display scripts)
+    {label="Super x Mike SB Dunk Low 94 White",full="Super x Mike SB Dunk Low 94 White",default=185000000},
+    {label="Gold Grocs",full="Gold Grocs",default=200000000},
+    {label="Air Bogdan 4 On-White Sail",full="Air Bogdan 4 On-White Sail",default=180000000},
+    {label="Mike Dunk Low Panda-Monium Multi Color",full="Mike Dunk Low Panda-Monium Multi Color",default=110000000},
+    {label="Adios Zeezy Boost 350 Zebra",full="Adios Zeezy Boost 350 Zebra",default=87000000},
+    {label="Air Bogdan 1 High On-White Chicago",full="Air Bogdan 1 High On-White Chicago",default=62000000},
+    {label="Air Bogdan 1 High On-White UNC",full="Air Bogdan 1 High On-White UNC",default=65000000},
+    {label="Air Bogdan 4 Orchid",full="Air Bogdan 4 Orchid",default=55000000},
+    {label="Air Bogdan 11 Gamma Blue",full="Air Bogdan 11 Gamma Blue",default=42000000},
+    {label="Mike SB Dunk Low Riot Skateshop",full="Mike SB Dunk Low Riot Skateshop",default=30000000},
+    {label="Bogdan Jumpman Jack Trevor University Red",full="Bogdan Jumpman Jack Trevor University Red",default=38000000},
+    {label="Mike SB Dunk Low There Skateboards",full="Mike SB Dunk Low There Skateboards",default=35000000},
+    {label="Mike SB Dunk Low Super Cammellzee",full="Mike SB Dunk Low Super Cammellzee",default=35000000},
+    {label="Air Bogdan 3 Wings",full="Air Bogdan 3 Wings",default=35000000},
+    {label="Air Bogdan 4 Black Cat",full="Air Bogdan 4 Black Cat",default=31000000},
+    {label="KSI Grocs",full="KSI Grocs",default=48000000},
+    {label="Air Bogdan 4 Nigel",full="Air Bogdan 4 Nigel",default=34000000},
+    {label="Mike Air Nag",full="Mike Air Nag",default=32000000},
+    {label="Mike Air Max 1 Stranger Things",full="Mike Air Max 1 Stranger Things",default=30000000},
+    {label="Air Bogdan 4 Wet Cement",full="Air Bogdan 4 Wet Cement",default=28000000},
+    {label="Air Bogdan 4 A Ma Maniere",full="Air Bogdan 4 A Ma Maniere",default=24800000},
+    {label="Air Bogdan 4 Fear",full="Air Bogdan 4 Fear",default=24800000},
+    {label="Mike SB Dunk Low Crenshaw",full="Mike SB Dunk Low Crenshaw",default=20800000},
+    {label="Air Bogdan 1 Low Trevor Olive",full="Air Bogdan 1 Low Trevor Olive",default=20200000},
+    {label="Mike SB Dunk Low Red Lobster",full="Mike SB Dunk Low Red Lobster",default=21000000},
+    {label="Mike SB Dunk Low Pale Ivory",full="Mike SB Dunk Low Pale Ivory",default=15800000},
+    {label="Mike Air Force 1 Tiffany",full="Mike Air Force 1 Tiffany",default=15000000},
+    {label="Air Bogdan 1 Low Trevor Mocha",full="Air Bogdan 1 Low Trevor Mocha",default=16400000},
+    {label="Carrot Grocs",full="Carrot Grocs",default=12200000},
+    {label="On-White Air Force 1 ComplexCon Exclusive",full="On-White Air Force 1 ComplexCon Exclusive",default=10000000},
+    {label="Air Bogdan 1 Chicago",full="Air Bogdan 1 Chicago",default=9600000},
+    {label="Mike SB Dunk Low Buttercup",full="Mike SB Dunk Low Buttercup",default=8200000},
+    {label="Mike SB Dunk Low Blossom",full="Mike SB Dunk Low Blossom",default=8700000},
+    {label="Ivie Yuitton Air Force 1 Monogram Damier",full="Ivie Yuitton Air Force 1 Monogram Damier",default=7300000},
+    {label="Air Bogdan 4 Emenem Carhartt",full="Air Bogdan 4 Emenem Carhartt",default=7000000},
+    {label="Adios Zeezy Boost 350 Bone",full="Adios Zeezy Boost 350 Bone",default=7000000},
+    {label="Air Bogdan 4 SB Pine Green",full="Air Bogdan 4 SB Pine Green",default=7000000},
+    {label="Mike SB Dunk Low Bubbles",full="Mike SB Dunk Low Bubbles",default=7800000},
+    {label="Mike SB Dunk Low StrangeLove",full="Mike SB Dunk Low StrangeLove",default=6000000},
+    {label="Air Bogdan 11 Pearl",full="Air Bogdan 11 Pearl",default=41800000},
+    {label="Air Bogdan 11 Low Diffused Blue",full="Air Bogdan 11 Low Diffused Blue",default=20000000},
+    {label="Mike SB Dunk Low Sunblush Futura",full="Mike SB Dunk Low Sunblush Futura",default=20000000},
+    {label="Mike SB Dunk Low Cactus Jack",full="Mike SB Dunk Low Cactus Jack",default=19000000},
+    {label="Air Bogdan 6 Olympic",full="Air Bogdan 6 Olympic",default=19000000},
+    {label="Air Bogdan 4 White Cement",full="Air Bogdan 4 White Cement",default=19000000},
+    {label="Mike Dunk High Panda",full="Mike Dunk High Panda",default=18000000},
+    {label="Air Bogdan 1 High J Balvin",full="Air Bogdan 1 High J Balvin",default=19000000},
+    {label="Air Bogdan 4 White Thunder",full="Air Bogdan 4 White Thunder",default=17800000},
+    {label="Mike Dunk Low Silver Blue",full="Mike Dunk Low Silver Blue",default=16000000},
+    {label="Mike Air Max 1/97 Wotherspoon",full="Mike Air Max 1/97 Wotherspoon",default=17000000},
+    {label="Mike SB Dunk Low Sesame and Pear",full="Mike SB Dunk Low Sesame and Pear",default=16500000},
+    {label="Air Bogdan 1 High Baroque Brown",full="Air Bogdan 1 High Baroque Brown",default=15000000},
+    {label="Air Bogdan 1 Low Year of the Snake",full="Air Bogdan 1 Low Year of the Snake",default=14000000},
+    {label="Mike Air Force 1 White Halloween",full="Mike Air Force 1 White Halloween",default=11000000},
+    {label="Mike SB Dunk Low Verdy Visty",full="Mike SB Dunk Low Verdy Visty",default=13000000},
+    {label="Mike SB Dunk Low Black and Smoke Grey",full="Mike SB Dunk Low Black and Smoke Grey",default=12000000},
+    {label="Mike Dunk Low Ceramic",full="Mike Dunk Low Ceramic",default=12000000},
+    {label="Bogdan 1 White",full="Bogdan 1 White",default=100},
+    {label="Mike SB Dunk Low Chunky Dunky",full="Mike SB Dunk Low Chunky Dunky",default=1000000},
+    {label="Mike Kobe 6 Grinch",full="Mike Kobe 6 Grinch",default=305000},
+    {label="Air Bogdan 4 SB Navy",full="Air Bogdan 4 SB Navy",default=2400000},
+    {label="Mike SB Dunk Low Pigeon",full="Mike SB Dunk Low Pigeon",default=10200000},
+    {label="Mike Air Force 1 Kobe",full="Mike Air Force 1 Kobe",default=26000000},
+    {label="Mike Air Force 1 Tiffany",full="Mike Air Force 1 Tiffany",default=15000000},
+    {label="Mike Air Force 1 Skeleton",full="Mike Air Force 1 Skeleton",default=110000},
+    {label="Mike Air Force 1 Trevor Scott Utopia",full="Mike Air Force 1 Trevor Scott Utopia",default=120000},
+    {label="Mike Air Max Trevor Scott Baroque Brown",full="Mike Air Max Trevor Scott Baroque Brown",default=950000},
+    {label="Mike Dunk Low Setsubun",full="Mike Dunk Low Setsubun",default=100000},
+    {label="Big Yellow Boots",full="Big Yellow Boots",default=500000},
+    {label="Big Red Boots",full="Big Red Boots",default=5900000},
+    {label="Shrek Grocs",full="Shrek Grocs",default=5500000},
+    {label="Toy Story Grocs",full="Toy Story Grocs",default=380000},
+    {label="Mater Grocs",full="Mater Grocs",default=415000},
+    {label="Cinnamon Toast Crunch Grocs",full="Cinnamon Toast Crunch Grocs",default=18000000},
+    {label="Kanye East Batesta",full="Kanye East Batesta",default=26000000},
+
+    --  SUPER RARE, PROMO, EVENT, LIMITED (add more if you see some in-game):
+    {label="Air Bogdan 11 Cool Grey",full="Air Bogdan 11 Cool Grey",default=5000000},
+    {label="Air Bogdan 11 Cherry",full="Air Bogdan 11 Cherry",default=5000000},
+    {label="Air Bogdan 1 Low Trevor Phantom",full="Air Bogdan 1 Low Trevor Phantom",default=6200000},
+    {label="On-White Dunk Low Lot 50 of 50",full="On-White Dunk Low Lot 50 of 50",default=380000},
+    {label="Adios Zeezy Boost 350 Beluga",full="Adios Zeezy Boost 350 Beluga",default=100000},
+    {label="Air Max Plus Black Tea",full="Air Max Plus Black Tea",default=18000000},
+    {label="Air Bogdan 4 Motorsport",full="Air Bogdan 4 Motorsport",default=140000},
+    {label="On-White Air Force 1 Black",full="On-White Air Force 1 Black",default=400000},
+    {label="Air Bogdan 1 High Trevor Fragment",full="Air Bogdan 1 High Trevor Fragment",default=600000},
+    {label="Air Bogdan 1 Low Trevor Reverse Mocha",full="Air Bogdan 1 Low Trevor Reverse Mocha",default=450000},
+    {label="Air Bogdan 4 Retro Lightning",full="Air Bogdan 4 Retro Lightning",default=410000},
+    {label="Air Bogdan 4 Trevor Scott",full="Air Bogdan 4 Trevor Scott",default=2300000},
+    {label="Air Bogdan 1 High Spiderverse",full="Air Bogdan 1 High Spiderverse",default=2300000},
+    {label="Mike SB Dunk Low Buttercup",full="Mike SB Dunk Low Buttercup",default=8200000},
+    -- Legacy/OG/Starters (if you see *any* missing, just paste them in below)
+}
+
+table.sort(presetSneakers,function(a,b)return a.default > b.default end)
+local shoeMaxPrices={} for _,s in ipairs(presetSneakers)do shoeMaxPrices[s.full]=s.default end
+
+local Window=Library:CreateWindow({Title='GP6 + AutoBuy SuperGUI',Center=true,AutoShow=true,TabPadding=8,MenuFadeTime=0.2})
+local Tabs={
+    AutoBuy=Window:AddTab('Shoe AutoBuy'),
+    GP6=Window:AddTab('GP6 Display'),
+    Loop=Window:AddTab('Shoe Loop'),
+    Debug=Window:AddTab('Debug/Util'),
+    Log=Window:AddTab('Purchase Log'),
+    ['UI Settings']=Window:AddTab('UI Settings')
+}
+--[[=====================================================================================
 BLOCK 2/6: SHOE AUTOBUY TAB – BLACKLIST, SEARCH, ALL SHOES UI, CUSTOM BUY, ROBUST AUTOBUY LOGIC
 ======================================================================================]]
 
@@ -230,6 +409,288 @@ task.spawn(function()
         task.wait(customBuyDelay)
         if customBuyToggle then
             tryCustomBuy()
+        end
+    end
+end)
+--[[=====================================================================================
+BLOCK 3/6:
+- PURCHASE LOG IN LEFT GROUPBOX ("Purchase Log History")
+- SESSION STATS & BUTTONS IN RIGHT GROUPBOX ("Session Stats/Tools")
+======================================================================================]]
+
+-- Left: Main log
+local logPanel = Tabs.Debug:AddLeftGroupbox("Purchase Log History")
+local logListLabel = logPanel:AddLabel("") -- Large area for scrollable buy/sell log
+
+-- Right: Session stats/buttons
+local statsPanel = Tabs.Debug:AddRightGroupbox("Session Stats / Tools")
+local spentLabel = statsPanel:AddLabel("Spent (session): $0")
+local profitLabel = statsPanel:AddLabel("Profit (session): $0")
+
+statsPanel:AddButton("Copy All to Clipboard", function()
+    if setclipboard then
+        local lines = {}
+        for _,entry in ipairs(purchaseLog) do
+            local tag = entry.sell and "[S]" or "[B]"
+            local extra = entry.sell and entry.profit and (" (+$%s profit)"):format(formatNumber(entry.profit)) or ""
+            table.insert(lines, string.format("%s %s @ $%s [%s]%s", tag, entry.name, formatNumber(entry.price), entry.timestamp, extra))
+        end
+        setclipboard(table.concat(lines,"\n"))
+        Library:Notify("Copied log to clipboard!")
+    else
+        Library:Notify("setclipboard not available")
+    end
+end)
+
+statsPanel:AddButton("Clear Log (session)", function()
+    table.clear(purchaseLog); totalSpent = 0; totalProfit = 0; refreshLogView()
+end)
+
+local function refreshLogView()
+    local lines = {}
+    for i,entry in ipairs(purchaseLog) do
+        local tag = entry.sell and "[S]" or "[B]"
+        local extra = ""
+        if entry.sell and entry.profit then
+            extra = (" (+$%s profit)"):format(formatNumber(entry.profit))
+        end
+        table.insert(lines, string.format(
+            "%s %s @ $%s [%s]%s", tag, entry.name, formatNumber(entry.price), entry.timestamp, extra))
+        if i >= 40 then break end
+    end
+    if #lines == 0 then lines[1] = "Nothing yet!" end
+    logListLabel:SetText(table.concat(lines,"\n"))
+    spentLabel:SetText("Spent (session): $" .. formatNumber(totalSpent))
+    profitLabel:SetText("Profit (session): $" .. formatNumber(totalProfit))
+end
+
+task.spawn(function()
+    while true do
+        refreshLogView()
+        task.wait(0.7)
+    end
+end)
+--[[=====================================================================================
+BLOCK 4/6:
+- VISUAL/BEEPER FEEDBACK: SOUND/FLASH FOR RARE (IN MODAL)
+- GP6 TAB: QUICK ONE-TAP SELLER & PROFIT LOGIC
+- UI POLISH/KEYBINDS
+======================================================================================]]
+
+local gb_gp6 = Tabs.GP6:AddLeftGroupbox('GP6 Controls')
+local gb_gp6_dd = Tabs.GP6:AddRightGroupbox('Quick Shoe Picker')
+local gb_sell = Tabs.GP6:AddRightGroupbox("Quick Sell (one-tap)")
+
+local allShoeNamesSorted = {"None"}
+for _,s in ipairs(presetSneakers)do table.insert(allShoeNamesSorted,s.full) end
+table.sort(allShoeNamesSorted, function(a,b)
+    if a=="None" then return true elseif b=="None" then return false else return a<b end
+end)
+
+local currentDisplayName = "DisplaySneaker2"
+local goodShoeValue = allShoeNamesSorted[1]
+local badShoeValue = allShoeNamesSorted[1]
+local priceAValue, priceBValue, autoLoopGP6, autoLoopDelay, lowerPriceChance = 1, 1000000, false, 1, 50
+
+gb_gp6:AddInput('DispName', {Default="DisplaySneaker2", Text='Target Display', Callback=function(val) currentDisplayName=val end})
+gb_gp6:AddInput('PriceA',   {Default='1', Text='Price A', Numeric=true, Callback=function(val) priceAValue=parseNumber(val) end})
+gb_gp6:AddInput('PriceB',   {Default='1000000', Text='Price B', Numeric=true, Callback=function(val) priceBValue=parseNumber(val) end})
+
+gb_gp6_dd:AddDropdown('GP6GoodName', {Values=allShoeNamesSorted,Default=1,Text='Good Shoe Name (dropdown)',Callback=function(v)goodShoeValue=v end})
+gb_gp6_dd:AddDropdown('GP6BadName', {Values=allShoeNamesSorted,Default=1,Text='Bad Shoe Name (dropdown)',Callback=function(v)badShoeValue=v end})
+
+gb_gp6:AddButton('Add Good',function()
+    if goodShoeValue ~= "None" then
+        changeDisplayRemote:FireServer(goodShoeValue,currentDisplayName,priceAValue)
+    end
+end)
+gb_gp6:AddLabel('Keybind:'):AddKeyPicker('GoodKeybind',{Default='G',Text='Good Shoe Keybind',Mode='Always',NoUI=false})
+gb_gp6:AddButton('Add Bad',function()
+    if badShoeValue ~= "None" then
+        changeDisplayRemote:FireServer(badShoeValue,currentDisplayName,priceBValue)
+    end
+end)
+gb_gp6:AddLabel('Keybind:'):AddKeyPicker('BadKeybind',{Default='J',Text='Bad Shoe Keybind',Mode='Always',NoUI=false})
+gb_gp6:AddButton('Clear (duplicate)',function()changeDisplayRemote:FireServer('',currentDisplayName,0)end)
+gb_gp6:AddLabel('Clear Key:'):AddKeyPicker('ClearKeybind',{Default='H',Text='Clear Keybind',Mode='Always',NoUI=false})
+
+-- Sell (Quick GP6 "Push Sale" logic)
+local sellName, sellPrice = "", 1000
+gb_sell:AddInput("SellName", {Default="", Text="Shoe (name)",Callback=function(x) sellName=x end})
+gb_sell:AddInput("SellPrice", {Default="1000", Text="Sell For $", Numeric=true,Callback=function(x) local v=tonumber(x) if v and v>0 then sellPrice=v end end})
+gb_sell:AddButton("Sell Now!", function()
+    if sellName and #sellName>0 and sellPrice>0 then
+        changeDisplayRemote:FireServer(sellName, currentDisplayName, sellPrice)
+        customModal(sellName, sellPrice, {sell=true})
+        -- Try and match (with oldest unsold entry) for profit calculation
+        local matchedBuyIdx
+        for i=#purchaseLog,1,-1 do
+            if not purchaseLog[i].sell and purchaseLog[i].name==sellName then matchedBuyIdx = i break end
+        end
+        local profit = nil
+        if matchedBuyIdx then
+            profit = sellPrice - purchaseLog[matchedBuyIdx].price
+            purchaseLog[matchedBuyIdx].sell = true
+            purchaseLog[matchedBuyIdx].profit = profit
+            totalProfit = totalProfit + profit
+        end
+        logPurchase(sellName, sellPrice, os.date("%X"), true, profit)
+        sendWebhook(sellName, sellPrice, {sell=true, profit=profit})
+    end
+end):AddTooltip("One-tap sell for any display slot.")
+
+gb_gp6:AddToggle('AutoLoopGP6',{Text='Auto Loop A/B',Default=false,Callback=function(v) autoLoopGP6=v end})
+gb_gp6:AddInput('AutoLoopDelay',{Default='1',Text='Loop Delay (s)',Numeric=true,Callback=function(txt)local v=tonumber(txt)if v and v>0 then autoLoopDelay=v end end})
+gb_gp6:AddSlider('GP6Chance',{Text='Chance Good (%)',Default=50,Min=0,Max=100,Rounding=0,Callback=function(val)lowerPriceChance=val end})
+
+-- Keybind handlers
+local function getKey(opt)
+    local v=opt and opt.Value
+    if type(v)=="string"then return v end
+    if type(v)=="table" then return v[1] end
+    return nil
+end
+
+UserInputService.InputBegan:Connect(function(input,gp)
+    if gp then return end
+    local goodKey=getKey(Options.GoodKeybind)
+    local badKey=getKey(Options.BadKeybind)
+    local clearKey=getKey(Options.ClearKeybind)
+    if goodKey and input.KeyCode.Name==goodKey and goodShoeValue ~= "None" then
+        changeDisplayRemote:FireServer(goodShoeValue,currentDisplayName,priceAValue)
+    end
+    if badKey and input.KeyCode.Name==badKey and badShoeValue ~= "None" then
+        changeDisplayRemote:FireServer(badShoeValue,currentDisplayName,priceBValue)
+    end
+    if clearKey and input.KeyCode.Name==clearKey then
+        changeDisplayRemote:FireServer('',currentDisplayName,0)
+    end
+    local v=Options.CustomBuyKeybind and Options.CustomBuyKeybind.Value
+    local ck
+    if type(v)=="string" then ck=v elseif type(v)=="table" then ck=v[1] end
+    if ck and input.KeyCode.Name==ck then tryCustomBuy() end
+end)
+--[[=====================================================================================
+BLOCK 5/6:
+- THEME CUSTOMIZATION UI (Linoria ThemeManager)
+- WEBHOOK URL INTEGRATION (USER SETTABLE)
+- UI SETTINGS TAB, CONFIG, SAVE
+======================================================================================]]
+
+local MenuGroup=Tabs['UI Settings']:AddLeftGroupbox('Menu')
+MenuGroup:AddButton('Unload',function()Library:Unload()end)
+MenuGroup:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind',{Default='End',NoUI=true,Text='Menu keybind'})
+Library.ToggleKeybind=Options.MenuKeybind
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({'MenuKeybind'})
+ThemeManager:SetFolder('KingRomelx')
+SaveManager:SetFolder('KingRomelx/specific-game')
+SaveManager:BuildConfigSection(Tabs['UI Settings'])
+ThemeManager:ApplyToTab(Tabs['UI Settings'])
+SaveManager:LoadAutoloadConfig()
+MenuGroup:AddButton("Force Save Config",function() SaveManager:Save() end)
+
+-- Theme customization, direct hook into linoria
+local themeTab = Tabs['UI Settings']:AddRightGroupbox('Theme/Colors')
+ThemeManager:ApplyToTab(Tabs['UI Settings'])
+
+-- Webhook input (user can paste Discord/whatever here)
+local webhookInput = MenuGroup:AddInput("WebhookUrl",{Text="Webhook Url (Discord/etc.)",Placeholder="Paste full url here",Default="",Callback=function(val)
+    if type(val)=="string" and #val>=8 and (val:find("http",1,true)) then
+        webhookUrl = val
+        Library:Notify("Webhook URL set!")
+    else
+        webhookUrl = ""
+    end
+end})
+if webhookUrl and #webhookUrl > 0 then webhookInput:SetValue(webhookUrl) end
+--[[=====================================================================================
+BLOCK 6/6:
+- POWER COUNTER FEATURE
+- FINAL SAFETY/UTILITY
+======================================================================================]]
+
+local showPowerCount = false
+local PowerCountGui, PowerTextLabel
+MenuGroup:AddToggle('ShowPowerCount', {
+    Text = 'Show Power Count',
+    Default = false,
+    Callback = function(val)
+        showPowerCount = val
+        if val then
+            if not PowerCountGui then
+                PowerCountGui = Instance.new("ScreenGui")
+                PowerCountGui.Name = "PowerCountCounter"
+                PowerCountGui.ResetOnSpawn = false
+                PowerCountGui.IgnoreGuiInset = true
+                PowerCountGui.Parent = game:GetService("CoreGui")
+
+                local frame = Instance.new("Frame")
+                frame.Name = "PowerCountFrame"
+                frame.Size = UDim2.new(0, 200, 0, 40)
+                frame.Position = UDim2.new(1, -220, 0, 20)
+                frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+                frame.BackgroundTransparency = 0.15
+                frame.BorderSizePixel = 0
+                frame.Active = true
+                frame.Draggable = true
+                frame.Parent = PowerCountGui
+
+                PowerTextLabel = Instance.new("TextLabel")
+                PowerTextLabel.Name = "PowerCountLbl"
+                PowerTextLabel.Size = UDim2.new(1,0,1,0)
+                PowerTextLabel.BackgroundTransparency = 1
+                PowerTextLabel.TextColor3 = Color3.fromRGB(255,215,80)
+                PowerTextLabel.TextStrokeTransparency = 0.7
+                PowerTextLabel.Font = Enum.Font.GothamBold
+                PowerTextLabel.TextSize = 20
+                PowerTextLabel.Text = "Powers in server: ???"
+                PowerTextLabel.Parent = frame
+
+                local mouse = game:GetService("Players").LocalPlayer:GetMouse()
+                local dragging, dragInput, dragStart, startPos
+                frame.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging = true
+                        dragStart = input.Position
+                        startPos = frame.Position
+                    end
+                end)
+                frame.InputEnded:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                        dragging = false
+                    end
+                end)
+                frame.InputChanged:Connect(function(input)
+                    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                        local delta = input.Position - dragStart
+                        frame.Position = UDim2.new(
+                            startPos.X.Scale, startPos.X.Offset + delta.X,
+                            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                        )
+                    end
+                end)
+            else
+                PowerCountGui.Enabled = true
+            end
+        else
+            if PowerCountGui then PowerCountGui.Enabled = false end
+        end
+    end
+})
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if showPowerCount and PowerTextLabel then
+            local powerCount = 0
+            for _, obj in ipairs(Workspace:GetDescendants()) do
+                if obj.Name:lower():find("power") then
+                    powerCount = powerCount + 1
+                end
+            end
+            PowerTextLabel.Text = "Powers in server: " .. tostring(powerCount)
         end
     end
 end)
