@@ -1,0 +1,235 @@
+--[[=====================================================================================
+BLOCK 2/6: SHOE AUTOBUY TAB – BLACKLIST, SEARCH, ALL SHOES UI, CUSTOM BUY, ROBUST AUTOBUY LOGIC
+======================================================================================]]
+
+-- ========== BLACKLIST UI ==========
+local blacklistTab = Tabs.AutoBuy:AddRightGroupbox("Blacklist/Exclusion")
+local blacklistInput = blacklistTab:AddInput("BlacklistAdd",{Text="Add Shoe To Blacklist",Placeholder="Paste shoe name"})
+local blacklistListLabel = blacklistTab:AddLabel("")
+local function refreshBlacklistLabel()
+    if #blacklist == 0 then
+        blacklistListLabel:SetText("Currently empty")
+    else
+        local s = ""
+        for i,v in ipairs(blacklist) do s = s .. i .. ". " .. v .. "\n" end
+        blacklistListLabel:SetText(s)
+    end
+end
+blacklistInput:OnChanged(function(val)
+    if val and val:match("%S") then
+        local found=false
+        for _,v in ipairs(blacklist)do if v:lower()==val:lower()then found=true end end
+        if not found then table.insert(blacklist, val) end
+        refreshBlacklistLabel()
+        blacklistInput:SetValue("")
+    end
+end)
+blacklistTab:AddButton("Remove Most Recent",function()
+    table.remove(blacklist,#blacklist)
+    refreshBlacklistLabel()
+end)
+blacklistTab:AddButton("Clear Blacklist",function()
+    table.clear(blacklist)
+    refreshBlacklistLabel()
+end)
+refreshBlacklistLabel()
+
+-- ========== SEARCH + PER-SHOE INPUTS ==========
+local searchGroup=Tabs.AutoBuy:AddLeftGroupbox("Shoe Search")
+local searchBox=searchGroup:AddInput("SearchShoe",{Default='',Text='Search Shoe (partial ok)',Placeholder='Ex: Grocs'})
+local searchResultLabel=searchGroup:AddLabel("Match: ")
+local searchSlider,searchInput
+local function clearSearchResults() if searchSlider then searchSlider:Remove(); searchSlider=nil end if searchInput then searchInput:Remove(); searchInput=nil end end
+searchBox:OnChanged(function(val)
+    local found=nil
+    for _,info in ipairs(presetSneakers)do
+        if info.label:lower():find(val:lower(),1,true) or info.full:lower():find(val:lower(),1,true) then
+            found=info; break
+        end
+    end
+    clearSearchResults()
+    if found then
+        searchResultLabel:SetText("Match: "..found.label)
+        searchSlider=searchGroup:AddSlider('SSlider_'..found.full,{
+            Text=found.full,
+            Default=shoeMaxPrices[found.full],
+            Min=1,Max=1e9,Rounding=0,
+            Callback=function(v)
+                shoeMaxPrices[found.full]=v
+                if searchInput then searchInput:SetValue(formatNumber(v)) end
+            end
+        })
+        searchInput=searchGroup:AddInput('SInput_'..found.full,{
+            Default=formatNumber(found.default),
+            Numeric=true,
+            Finished=true,
+            Text='Set manually',
+            Placeholder=formatNumber(found.default),
+            Callback=function(val)
+                local v=parseNumber(val)
+                if v then
+                    shoeMaxPrices[found.full]=v
+                    if searchSlider then searchSlider:SetValue(v) end
+                    if searchInput then searchInput:SetValue(formatNumber(v)) end
+                end
+            end
+        })
+    else
+        searchResultLabel:SetText('No match.')
+    end
+end)
+
+-- ========== ALL SHOES UI (AUTOBUY SETTINGS/PER-SHOE SLIDERS) ==========
+local SHOES_PER_GROUP=15
+local nShoes=#presetSneakers
+local nGroups=math.ceil(nShoes/SHOES_PER_GROUP)
+local autoBuy,oneDollarSnipe=false,false
+for group=1,nGroups do
+    local iStart=(group-1)*SHOES_PER_GROUP+1
+    local iEnd=math.min(nShoes,group*SHOES_PER_GROUP)
+    local gb=Tabs.AutoBuy:AddLeftGroupbox(("Shoes %d-%d"):format(iStart,iEnd))
+    if group==1 then
+        gb:AddToggle('AutoBuy',{Text='AutoBuy',Default=false,Callback=function(v)autoBuy=v end})
+        gb:AddToggle('Snipe1',{Text='$1 Snipe',Default=false,Callback=function(v)oneDollarSnipe=v end})
+        gb:AddDivider()
+    end
+    for i=iStart,iEnd do
+        local info=presetSneakers[i]
+        gb:AddLabel(info.label.." | "..info.full)
+        gb:AddSlider('Slider_'..info.full,{
+            Text='Max buy price',
+            Default=shoeMaxPrices[info.full],Min=1,Max=1e9,Rounding=0,
+            Callback=function(v) shoeMaxPrices[info.full]=v end
+        })
+        gb:AddInput('Input_'..info.full,{
+            Default=formatNumber(info.default),
+            Numeric=true,Finished=true,
+            Text='Set manually',
+            Placeholder=formatNumber(info.default),
+            Callback=function(val)
+                local v=parseNumber(val)
+                if v then
+                    shoeMaxPrices[info.full]=v
+                    if gb.Options and gb.Options['Slider_'..info.full] then
+                        gb.Options['Slider_'..info.full]:SetValue(v)
+                    end
+                    if gb.Options and gb.Options['Input_'..info.full] then
+                        gb.Options['Input_'..info.full]:SetValue(formatNumber(v))
+                    end
+                end
+            end
+        })
+        gb:AddDivider()
+    end
+end
+
+-- ========== ROBUST AUTOBUY & $1 SNIPE LOGIC ==========
+local recentBuys = {} -- prevent double buys in a short window
+task.spawn(function()
+    while true do
+        if autoBuy or oneDollarSnipe then
+            local tablesFolder = Workspace:FindFirstChild("Tables")
+            if tablesFolder and buyDisplayRemote then
+                for _,tbl in ipairs(tablesFolder:GetChildren())do
+                    for i=1,3 do
+                        local display = tbl:FindFirstChild("DisplaySneaker"..i)
+                        if display and display:FindFirstChild("SneakerValue") and display:FindFirstChild("Price") then
+                            local sneakerValue = tostring(display.SneakerValue.Value)
+                            local price = tonumber(display.Price.Value)
+
+                            -- Prevent buying same shoe/price repeatedly (debounce)
+                            local buyKey = sneakerValue..":"..tostring(price)
+                            if recentBuys[buyKey] and tick()-recentBuys[buyKey]<1 then
+                                continue
+                            end
+
+                            -- Blacklist check (case-insensitive)
+                            local blacklisted = false
+                            for _,v in ipairs(blacklist) do
+                                if sneakerValue:lower() == tostring(v):lower() then 
+                                    blacklisted = true
+                                    break
+                                end
+                            end
+
+                            if not blacklisted then
+                                -- $1 Snipe
+                                if oneDollarSnipe and price == 1 then
+                                    buyDisplayRemote:FireServer(display, sneakerValue, price)
+                                    logPurchase(sneakerValue, price, os.date("%I:%M:%S %p"))
+                                    recentBuys[buyKey] = tick()
+                                    continue
+                                end
+
+                                -- Autobuy up to max price
+                                if autoBuy then
+                                    -- Robust lookup: accept "label" or "full" match
+                                    local allowed = false
+                                    local maxPrice
+                                    for _,preset in ipairs(presetSneakers) do
+                                        if sneakerValue:lower() == preset.full:lower() or sneakerValue:lower() == preset.label:lower() then
+                                            maxPrice = shoeMaxPrices[preset.full] or preset.default
+                                            allowed = true
+                                            break
+                                        end
+                                    end
+                                    -- Fallback: fallback to generic preset default if not found
+                                    if allowed and maxPrice and price <= maxPrice then
+                                        buyDisplayRemote:FireServer(display, sneakerValue, price)
+                                        logPurchase(sneakerValue, price, os.date("%I:%M:%S %p"))
+                                        recentBuys[buyKey] = tick()
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(0.12) -- a bit longer to be kind to server/antispam
+    end
+end)
+
+-- ========== CUSTOM BUY ==========
+local customBuyBox = Tabs.AutoBuy:AddRightGroupbox("Custom Buy")
+local customShoeList = {"None"}
+for _,s in ipairs(presetSneakers)do table.insert(customShoeList,s.full) end
+table.sort(customShoeList,function(a,b)if a=="None" then return true elseif b=="None" then return false else return a<b end end)
+local customShoeText, customBuySelected, customPrice = "", "None", 1
+local customBuyToggle, customBuyDelay = false, 0.25
+customBuyBox:AddDropdown('CustomBuyShoe',{Values=customShoeList, Default=1, Text="Shoe (dropdown)",Callback=function(v)customBuySelected=v;customShoeText=v=="None" and "" or v;end})
+customBuyBox:AddInput('CustomBuyText',{Default="", Text="Shoe (custom text)", Placeholder="Paste or type any shoe name",Callback=function(v)customShoeText=v end})
+customBuyBox:AddInput('CustomBuyPrice',{Default="1", Text="Buy Price", Numeric=true, Placeholder="Enter price",Callback=function(val)local v=parseNumber(val)if v and v>0 then customPrice=v end end})
+customBuyBox:AddToggle('CustomBuyToggle',{Text='Custom Buy (loop)',Default=false,Callback=function(v)customBuyToggle=v end})
+customBuyBox:AddLabel('Keybind:'):AddKeyPicker('CustomBuyKeybind',{Default='K', Text='Custom Buy Key', Mode='Always', NoUI=false})
+
+local function tryCustomBuy()
+    local shoeName = customShoeText ~= "" and customShoeText or (customBuySelected ~= "None" and customBuySelected or nil)
+    local priceWanted = tonumber(customPrice) or 1
+    if not shoeName or shoeName=="None" or not priceWanted or not buyDisplayRemote then return end
+    if isBlacklisted(shoeName) then return end
+    local tablesFolder = Workspace:FindFirstChild("Tables")
+    if not tablesFolder then return end
+    for _,tbl in ipairs(tablesFolder:GetChildren())do
+        for i=1,3 do
+            local display = tbl:FindFirstChild("DisplaySneaker"..i)
+            if display and display:FindFirstChild("SneakerValue") and display:FindFirstChild("Price") then
+                local sneakerValue = tostring(display.SneakerValue.Value)
+                local price = tonumber(display.Price.Value)
+                if sneakerValue:lower() == shoeName:lower() and price <= priceWanted then
+                    buyDisplayRemote:FireServer(display, sneakerValue, price)
+                    logPurchase(sneakerValue, price, os.date("%I:%M:%S %p"))
+                end
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(customBuyDelay)
+        if customBuyToggle then
+            tryCustomBuy()
+        end
+    end
+end)
