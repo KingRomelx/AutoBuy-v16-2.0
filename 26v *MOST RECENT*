@@ -79,7 +79,7 @@ local presetSneakers = {
     {label="Air Bogdan 1 High On-White Chicago",full="Air Bogdan 1 High On-White Chicago",default=62000000},
     {label="Air Bogdan 1 High On-White UNC",full="Air Bogdan 1 High On-White UNC",default=65000000},
     {label="Air Bogdan 4 Orchid",full="Air Bogdan 4 Orchid",default=55000000},
-    {label="Air Bogdan 11 Gamma Blue",full="Air Bogdan 11 Gamma Blue",default=42000000},
+    {label="Air Bogdan 11 Gamma Blue",full="Air Bogdan 11 Gamma Blue",default=20000000},
     {label="Mike SB Dunk Low Riot Skateshop",full="Mike SB Dunk Low Riot Skateshop",default=30000000},
     {label="Bogdan Jumpman Jack Trevor University Red",full="Bogdan Jumpman Jack Trevor University Red",default=38000000},
     {label="Mike SB Dunk Low There Skateboards",full="Mike SB Dunk Low There Skateboards",default=35000000},
@@ -178,7 +178,7 @@ local Tabs={
     ['UI Settings']=Window:AddTab('UI Settings')
 }
 --[[=====================================================================================
-BLOCK 2/6: SHOE AUTOBUY TAB – BLACKLIST, SEARCH, ALL SHOES UI, CUSTOM BUY, ROBUST AUTOBUY LOGIC
+BLOCK 2/6: SHOE AUTOBUY TAB – BLACKLIST, SEARCH, ALL SHOES UI, CUSTOM BUY, ROBUST AUTOBUY LOGIC WITH NOTIFIER
 ======================================================================================]]
 
 -- ========== BLACKLIST UI ==========
@@ -302,7 +302,7 @@ for group=1,nGroups do
     end
 end
 
--- ========== ROBUST AUTOBUY & $1 SNIPE LOGIC ==========
+-- ========== ROBUST AUTOBUY & $1 SNIPE LOGIC WITH NOTIFIER ==========
 local recentBuys = {} -- prevent double buys in a short window
 task.spawn(function()
     while true do
@@ -335,6 +335,7 @@ task.spawn(function()
                                 -- $1 Snipe
                                 if oneDollarSnipe and price == 1 then
                                     buyDisplayRemote:FireServer(display, sneakerValue, price)
+                                    Library:Notify("[AUTOBUY] $1 SNIPE: " .. sneakerValue)
                                     logPurchase(sneakerValue, price, os.date("%I:%M:%S %p"))
                                     recentBuys[buyKey] = tick()
                                     continue
@@ -352,9 +353,9 @@ task.spawn(function()
                                             break
                                         end
                                     end
-                                    -- Fallback: fallback to generic preset default if not found
                                     if allowed and maxPrice and price <= maxPrice then
                                         buyDisplayRemote:FireServer(display, sneakerValue, price)
+                                        Library:Notify("[AUTOBUY] Bought " .. sneakerValue .. " for $" .. formatNumber(price))
                                         logPurchase(sneakerValue, price, os.date("%I:%M:%S %p"))
                                         recentBuys[buyKey] = tick()
                                     end
@@ -397,6 +398,7 @@ local function tryCustomBuy()
                 local price = tonumber(display.Price.Value)
                 if sneakerValue:lower() == shoeName:lower() and price <= priceWanted then
                     buyDisplayRemote:FireServer(display, sneakerValue, price)
+                    Library:Notify("[CUSTOM] Bought "..sneakerValue.." for $"..formatNumber(price))
                     logPurchase(sneakerValue, price, os.date("%I:%M:%S %p"))
                 end
             end
