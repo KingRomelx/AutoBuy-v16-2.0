@@ -1,0 +1,2096 @@
+--[[
+JARVIS SNEAKER SUITE - FULL AUTOBUYER SCRIPT
+================================================================================
+BLOCK 0: ALL SHOE PRESETS (FULL LIST, JARVIS SNEAKER SUITE)
+================================================================================
+]]
+local presetSneakers = {
+--==== SPECIAL: ULTRA-RARE / $200M+ NOT GROUPED ====--
+    {label="Tralalelo Sneakers", full="Tralalelo Sneakers", default=1000000000},
+    {label="Pink Cleats", full="Mike Mercurial Superfly 9 Pink", default=1000000000},
+    {label="Spongey Boy's", full="Lumberland 6-Inch Boot SpongeBro Blue", default=800000000},
+    {label="Golden Boot", full="Golden Boot", default=700000000},
+    {label="Mike Dunk Low Gold", full="Mike Dunk Low Gold", default=700000000},
+    {label="Zeezy Foam Runner Gold", full="Zeezy Foam Runner Gold", default=700000000},
+    {label="Super x Mike SB Dunk Low 94 White", full="Super x Mike SB Dunk Low 94 White", default=188000000},
+    {label="Adios Predator 19+ Pogba", full="Adios Predator 19+ Pogba", default=808000000},
+    {label="Adios Performance Predos", full="Adios Performance Predator", default=70000000},
+
+--==== GROCS ====--
+    {label="Gold Grocs", full="Gold Grocs", default=215000000},
+    {label="KSI Grocs", full="KSI Grocs", default=48000000},
+    {label="Cinnamon Toast Crunch Grocs", full="Cinnamon Toast Crunch Grocs", default=18000000},
+    {label="Carrot Grocs", full="Carrot Grocs", default=12200000},
+    {label="Shrek Grocs", full="Shrek Grocs", default=5500000},
+    {label="Mater Grocs", full="Mater Grocs", default=415000},
+    {label="Toy Story Grocs", full="Toy Story Grocs", default=200000},
+
+--==== MIKE DUNK LOW/HIGH ====--
+    {label="Mike Dunk Low Panda-Monium Multi Color", full="Mike Dunk Low Panda-Monium Multi Color", default=120000000},
+    {label="Mike Dunk Low Ceramic", full="Mike Dunk Low Ceramic", default=12000000},
+    {label="Mike Dunk Low Silver Blue", full="Mike Dunk Low Silver Blue", default=18000000},
+    {label="Mike Dunk Low Setsubun", full="Mike Dunk Low Setsubun", default=100000},
+    {label="Mike Dunk High Panda", full="Mike Dunk High Panda", default=18000000},
+
+--==== MIKE SB DUNK LOW ====--
+    {label="Mike SB Dunk Low The Wizard of Oz",           full="Mike SB Dunk Low The Wizard of Oz",           default=62000000},
+    {label="Mike SB Dunk Low Gold and Dark Red",          full="Mike SB Dunk Low Gold and Dark Red",          default=23000000},
+    {label="Mike SB Dunk Low Riot Skateshop",             full="Mike SB Dunk Low Riot Skateshop",             default=34000000},
+    {label="Mike SB Dunk Low There Skateboards",          full="Mike SB Dunk Low There Skateboards",          default=38500000},
+    {label="Mike SB Dunk Low Super Cammellzee",           full="Mike SB Dunk Low Super Cammellzee",           default=38000000},
+    {label="Mike SB Dunk Low Fir and Fire Red",           full="Mike SB Dunk Low Fir and Fire Red",           default=20800000},
+    {label="Mike SB Dunk Low Sunblush Futura",            full="Mike SB Dunk Low Sunblush Futura",            default=20000000},
+    {label="Mike SB Dunk Low Red Lobster",                full="Mike SB Dunk Low Red Lobster",                default=19000000},
+    {label="Mike SB Dunk Low Cactus Jack",                full="Mike SB Dunk Low Cactus Jack",                default=20000000},
+    {label="Mike SB Dunk Low Crenshaw",                   full="Mike SB Dunk Low Crenshaw",                   default=18800000},
+    {label="Mike SB Dunk Low Sesame and Pear",            full="Mike SB Dunk Low Sesame and Pear",            default=17100000},
+    {label="Mike SB Dunk Low Pale Ivory",                 full="Mike SB Dunk Low Pale Ivory",                 default=15100000},
+    {label="Mike SB Dunk Low Hayley Wilson",              full="Mike SB Dunk Low Hayley Wilson",              default=15800000},
+    {label="Mike SB Dunk Low Verdy Visty",                full="Mike SB Dunk Low Verdy Visty",                default=14800000},
+    {label="Mike SB Dunk Low Burnt Sunrise",              full="Mike SB Dunk Low Burnt Sunrise",              default=12800000},
+    {label="Mike SB Dunk Low Black and Smoke Grey",       full="Mike SB Dunk Low Black and Smoke Grey",       default=13700000},
+    {label="Mike SB Dunk Low Light Carbon Monarch",       full="Mike SB Dunk Low Light Carbon Monarch",       default=10500000},
+    {label="Mike SB Dunk Low Pigeon",                     full="Mike SB Dunk Low Pigeon",                     default=10200000},
+    {label="Mike SB Dunk Low Blossom",                    full="Mike SB Dunk Low Blossom",                    default=9000000},
+    {label="Mike SB Dunk Low Buttercup",                  full="Mike SB Dunk Low Buttercup",                  default=8200000},
+    {label="Mike SB Dunk Low White and Black",            full="Mike SB Dunk Low White and Black",            default=10000000},
+    {label="Mike SB Dunk Low Jaritos",                    full="Mike SB Dunk Low Jaritos",                    default=6700000},
+    {label="Mike SB Dunk Low Sandy Bodecker",             full="Mike SB Dunk Low Sandy Bodecker",             default=1100000},
+    {label="Mike SB Dunk Low Why So Sad",                 full="Mike SB Dunk Low Why So Sad",                 default=1100000},
+    {label="Mike SB Dunk Low Bubbles",                    full="Mike SB Dunk Low Bubbles",                    default=7800000},
+    {label="Mike SB Dunk Low StrangeLove",                full="Mike SB Dunk Low StrangeLove",                default=7000000},
+    {label="Mike SB Dunk Low Chunky Dunky",               full="Mike SB Dunk Low Chunky Dunky",               default=900000},
+    {label="Mike SB Dunk Low Black and White",            full="Mike SB Dunk Low Black and White",            default=10000000},
+
+--==== MIKE KOBE 6 ====--
+    {label="Mike Kobe 6 Grinch", full="Mike Kobe 6 Grinch", default=280000},
+    {label="Mike Kobe 6 Reverse Grinch", full="Mike Kobe 6 Reverse Grinch", default=280000},
+
+--==== MIKE AIR FORCE 1 ====--
+    {label="Mike Air Force 1 Halloween", full="Mike Air Force 1 Halloween", default=48000000},
+    {label="Mike Air Force 1 Lil Yachty", full="Mike Air Force 1 Lil Yachty", default=38000000},
+    {label="Mike Air Force 1 Pink Foam", full="Mike Air Force 1 Pink Foam", default=36000000},
+    {label="Mike Air Force 1 Kobe", full="Mike Air Force 1 Kobe", default=28000000},
+    {label="Mike Air Force 1 Kobe x Barcelona Violent", full="Mike Air Force 1 Kobe x Barcelona Violent", default=26000000},
+    {label="Mike Air Force 1 Varsity Red-White", full="Mike Air Force 1 Varsity Red-White", default=20000000},
+    {label="Mike Air Force 1 Anthracite", full="Mike Air Force 1 Anthracite", default=16800000},
+    {label="Mike Air Force 1 x Stash", full="Mike Air Force 1 x Stash", default=16000000},
+    {label="Mike Air Force 1 Tiffany", full="Mike Air Force 1 Tiffany", default=15000000},
+    {label="Mike Air Force 1 White Halloween", full="Mike Air Force 1 White Halloween", default=15000000},
+    {label="Mike Air Force 1 Linen", full="Mike Air Force 1 Linen", default=10000000},
+    {label="Mike Air Force 1 Trevor Scott Utopia", full="Mike Air Force 1 Trevor Scott Utopia", default=120000},
+    {label="Mike Air Force 1 Skeleton", full="Mike Air Force 1 Skeleton", default=110000},
+--==== ADIOS ZEEZY BOOST 350 ====--
+    {label="Adios Zeezy Boost 350 Zebra", full="Adios Zeezy Boost 350 Zebra", default=75000000},
+    {label="Adios Zeezy Boost 350 Bone", full="Adios Zeezy Boost 350 Bone", default=7000000},
+    {label="Adios Zeezy Boost 350 Beluga", full="Adios Zeezy Boost 350 Beluga", default=100000},
+
+--==== MIKE AIR ZEEZY 2 ====--
+    {label="Mike Air Zeezy 2 Pure Platinum", full="Mike Air Zeezy 2 Pure Platinum", default=50000000},
+    {label="Mike Air Zeezy 2 Solar Red", full="Mike Air Zeezy 2 Solar Red", default=9000000},
+
+--==== AIR BOGDAN 1 HIGH ====--
+    {label="Air Bogdan 1 High On-White Euro", full="Air Bogdan 1 High On-White Euro", default=830000000},
+    {label="Air Bogdan 1 High On-White Canary", full="Air Bogdan 1 High On-White Canary", default=685000000},
+    {label="Air Bogdan 1 High On-White UNC", full="Air Bogdan 1 High On-White UNC", default=78000000},
+    {label="Air Bogdan 1 High On-White Chicago", full="Air Bogdan 1 High On-White Chicago", default=71000000},
+    {label="Air Bogdan 1 High Black Toe Reimagined", full="Air Bogdan 1 High Black Toe Reimagined", default=25000000},
+    {label="Air Bogdan 1 High Satin Shadow", full="Air Bogdan 1 High Satin Shadow", default=20000000},
+    {label="Air Bogdan 1 High J Balvin", full="Air Bogdan 1 High J Balvin", default=19000000},
+    {label="Air Bogdan 1 High Black/Gold", full="Air Bogdan 1 High Black And Gold", default=17000000},
+    {label="Air Bogdan 1 High Baroque Brown", full="Air Bogdan 1 High Baroque Brown", default=15000000},
+    {label="Air Bogdan 1 High Trevor Mocha", full="Air Bogdan 1 High Trevor Mocha", default=12800000},
+    {label="Air Bogdan 1 High Spiderverse", full="Air Bogdan 1 High Spiderverse", default=2300000},
+    {label="Air Bogdan 1 High Trevor Fragment", full="Air Bogdan 1 High Trevor Fragment", default=600000},
+    {label="Air Bogdan 1 High Bior", full="Air Bogdan 1 High Bior", default=500000},
+
+--==== AIR BOGDAN 1 LOW ====--
+    {label="Air Bogdan 1 Canary", full="Air Bogdan 1 Trevor Canary", default=200000000},
+    {label="Air Bogdan 1 Low Chicago", full="Air Bogdan 1 Low Chicago", default=47200000},
+    {label="Air Bogdan 1 Low Obsidian", full="Air Bogdan 1 Low Obsidian", default=35000000},
+    {label="Air Bogdan 1 Low PSG", full="Air Bogdan 1 Low PSG", default=30000000},
+    {label="Air Bogdan 1 Low Trevor Olive", full="Air Bogdan 1 Low Trevor Olive", default=19200000},
+    {label="Air Bogdan 1 Low Trevor Mocha", full="Air Bogdan 1 Low Trevor Mocha", default=17900000},
+    {label="Air Bogdan 1 Low Year of the Snake", full="Air Bogdan 1 Low Year of the Snake", default=15800000},
+    {label="Air Bogdan 1 Low Trevor Phantom", full="Air Bogdan 1 Low Trevor Phantom", default=6400000},
+    {label="Air Bogdan 1 Low TF Sail", full="Air Bogdan 1 Low Trevor Fragment Sail", default=2200000},
+    {label="Air Bogdan 1 Low Trevor Reverse Mocha", full="Air Bogdan 1 Low Trevor Reverse Mocha", default=450000},
+    {label="Air Bogdan 1 Low Bior", full="Air Bogdan 1 Low Bior", default=400000},
+    {label="Air Bogdan 1 Chicago", full="Air Bogdan 1 Chicago", default=11000000},
+
+--==== AIR BOGDAN 3 ====--
+    {label="Air Bogdan 3 Pure Money", full="Air Bogdan 3 Pure Money", default=110000000},
+    {label="Air Bogdan 3 Wings", full="Air Bogdan 3 Wings", default=37000000},
+    {label="Air Bogdan 3 Treat Yourself", full="Air Bogdan 3 Treat Yourself", default=32000000},
+    {label="Air Bogdan 3 Black Cement", full="Air Bogdan 3 Black Cement", default=20000000},
+    {label="Air Bogdan 3 Lucky Shorts", full="Air Bogdan 3 Lucky Shorts", default=15000000},
+    {label="Air Bogdan 3 White Cement", full="Air Bogdan 3 White Cement", default=9800000},
+    {label="Air Bogdan 3 Cement Grey", full="Air Bogdan 3 Cement Grey", default=5000000},
+    {label="Air Bogdan 3 A Ma Maniere", full="Air Bogdan 3 A Ma Maniere", default=3000000},
+
+--==== AIR BOGDAN 4 ====--
+    {label="Air Bogdan 4 Trevor Scott Purple", full="Air Bogdan 4 Trevor Scott Purple", default=200000000},
+    {label="Air Bogdan 4 On-White Sail", full="Air Bogdan 4 On-White Sail", default=220000000},
+    {label="Air Bogdan 4 Orchid", full="Air Bogdan 4 Orchid", default=55000000},
+    {label="Air Bogdan 4 Nigel", full="Air Bogdan 4 Nigel", default=38000000},
+    {label="Air Bogdan 4 Black Cat", full="Air Bogdan 4 Black Cat", default=31000000},
+    {label="Air Bogdan 4 Wet Cement", full="Air Bogdan 4 Wet Cement", default=28000000},
+    {label="Air Bogdan 4 Fear", full="Air Bogdan 4 Fear", default=25000000},
+    {label="Air Bogdan 4 A Ma Maniere", full="Air Bogdan 4 A Ma Maniere", default=24800000},
+    {label="Air Bogdan 4 White Cement", full="Air Bogdan 4 White Cement", default=19000000},
+    {label="Air Bogdan 4 White Thunder", full="Air Bogdan 4 White Thunder", default=17800000},
+    {label="Air Bogdan 4 SB Pine Green", full="Air Bogdan 4 SB Pine Green", default=7200000},
+    {label="Air Bogdan 4 Emenem Carhartt", full="Air Bogdan 4 Emenem Carhartt", default=7050000},
+    {label="Air Bogdan 4 UNC", full="Air Bogdan 4 UNC", default=3000000},
+    {label="Air Bogdan 4 Metallic Red", full="Air Bogdan 4 Metallic Red", default=3000000},
+    {label="Air Bogdan 4 Trevor Scott", full="Air Bogdan 4 Trevor Scott", default=2100000},
+    {label="Air Bogdan 4 SB Navy", full="Air Bogdan 4 SB Navy", default=1200000},
+    {label="Air Bogdan 4 Kaws", full="Air Bogdan 4 Kaws", default=1100000},
+    {label="Air Bogdan 4 Retro Lightning", full="Air Bogdan 4 Retro Lightning", default=410000},
+    {label="Air Bogdan 4 Military Blue", full="Air Bogdan 4 Military Blue", default=150000},
+    {label="Air Bogdan 4 Motorsport", full="Air Bogdan 4 Motorsport", default=140000},
+
+--==== AIR BOGDAN 5 ====--
+    {label="Air Bogdan 5 Fire Red", full="Air Bogdan 5 Fire Red", default=35800000},
+    {label="Air Bogdan 5 On-White Sail", full="Air Bogdan 5 On-White Sail", default=35800000},
+    {label="Air Bogdan 5 Varsity Maize", full="Air Bogdan 5 Varsity Maize", default=26800000},
+    {label="Air Bogdan 5 Pink", full="Air Bogdan 5 Awake NY Pink", default=1800000},
+    {label="Air Bogdan 5 Black", full="Air Bogdan 5 Awake NY Black", default=1800000},
+    {label="Air Bogdan 5 UNC", full="Air Bogdan 5 UNC", default=1000000},
+
+--==== AIR BOGDAN 6 ====--
+    {label="Air Bogdan 6 Reverse Oreo", full="Air Bogdan 6 Reverse Oreo", default=28000000},
+    {label="Air Bogdan 6 Pearl", full="Air Bogdan 6 Pearl", default=25800000},
+    {label="Air Bogdan 6 Olympic", full="Air Bogdan 6 Olympic", default=19000000},
+
+--==== AIR BOGDAN 11 ====--
+    {label="Air Bogdan 11 Pearl", full="Air Bogdan 11 Pearl", default=41800000},
+    {label="Air Bogdan 11 Gamma Blue", full="Air Bogdan 11 Gamma Blue", default=20000000},
+    {label="Air Bogdan 11 Low Diffused Blue", full="Air Bogdan 11 Low Diffused Blue", default=20000000},
+    {label="Air Bogdan 11 Cool Grey", full="Air Bogdan 11 Cool Grey", default=5490000},
+    {label="Air Bogdan 11 Cherry", full="Air Bogdan 11 Cherry", default=5200000},
+    {label="Air Bogdan 11 Concord", full="Air Bogdan 11 Concord", default=88000},
+
+--==== YUTTON / ON-WHITE / LUXURY ====--
+    {label="On-White Dunk Low Lot 01 of 50", full="On-White Dunk Low Lot 01 of 50", default=150000000},
+    {label="On-White Air Force 1 ComplexCon Exclusive", full="On-White Air Force 1 ComplexCon Exclusive", default=10000000},
+    {label="On-White Air Force 1 Black", full="On-White Air Force 1 Black", default=400000},
+    {label="On-White Dunk Low Lot 50 of 50", full="On-White Dunk Low Lot 50 of 50", default=280000},
+    {label="Ivie Yuitton Air Force 1 Monogram Damier", full="Ivie Yuitton Air Force 1 Monogram Damier", default=10000000},
+    {label="Ivie Yuitton IY Trainer White Black", full="Ivie Yuitton IY Trainer White Black", default=1000000},
+
+--==== MISCELLANEOUS (SINGLES/OTHER/UNIQUE) ====--
+    {label="Elf Shoes", full="Elf Shoes", default=28500000},
+    {label="Big Red Boots", full="Big Red Boots", default=5900000},
+    {label="Big Yellow Boots", full="Big Yellow Boots", default=500000},
+    {label="Mike Air Nag", full="Mike Air Nag", default=35800000},
+    {label="Mike Wu-Tang Clan Dunk High", full="Mike Wu-Tang Clan Dunk High", default=24000000},
+    {label="Mike Mercurial Superfly 9 Lemonade", full="Mike Mercurial Superfly 9 Lemonade", default=1000000},
+    {label="Gocci Flip Flop", full="Gocci Flip Flop", default=1000000},
+    {label="Skibidi's", full="Skibidi Sneakers", default=14200000},
+    {label="Super x Mike SB Dunk Low 94 White", full="Super x Mike SB Dunk Low 94 White", default=185000000},
+    {label="Kanye East Batesta", full="Kanye East Batesta", default=28900000},
+
+--==== Air Max Plus ====--
+    {label="Air Max Plus FC Barcelona", full="Air Max Plus FC Barcelona", default=800000000},
+    {label="Air Max Plus Black Tea", full="Air Max Plus Black Tea", default=28700000},
+    {label="Air Max Plus One Block Down Blue", full="Air Max Plus One Block Down Blue", default=450000},
+    {label="Air Max Plus Baltic Blue", full="Air Max Plus Baltic Blue", default=450000},
+
+--==== Air Max 1 ====--
+    {label="Mike Air Max 1 Anniversary Red", full="Mike Air Max 1 Anniversary Red", default=38000000},
+    {label="Mike Air Max 1 Stranger Things", full="Mike Air Max 1 Stranger Things", default=28000000},
+    {label="Mike Air Max 1 Cosmic Clay", full="Mike Air Max 1 Cosmic Clay", default=10000000},
+    {label="Mike Air Max 1/97 Sean Wotherspoon", full="Mike Air Max 1/97 Sean Wotherspoon", default=17700000},
+    {label="Mike Air Max Bulky Barboques", full="Mike Air Max Trevor Scott Baroque Brown", default=850000},
+
+--==== MIKE VOMERO ====--
+    {label="Mike Vomero 5 Bright Crimson", full="Mike Vomero 5 Bright Crimson", default=16000000},
+    {label="Mike Vomero 5 Metallic Silver", full="Mike Vomero 5 Metallic Silver", default=14500000},
+}
+
+
+local shoeMaxPrices = {}
+for _,s in ipairs(presetSneakers) do shoeMaxPrices[s.full] = s.default end
+
+serverSalesLog = {} -- <--- ADD THIS LINE HERE, NOT "local"!
+
+--[[
+================================================================================
+BLOCK 1: JARVIS SNEAKER SUITE MAIN FRAME AND TAB BAR
+================================================================================
+]]
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+-- Main Suite Frame
+local suiteFrame = Instance.new("Frame")
+suiteFrame.Name = "JarvisSuite"
+suiteFrame.Size = UDim2.new(0, 1030, 0, 790) -- Larger new size!
+suiteFrame.Position = UDim2.new(0.5, -515, 0.5, -395)
+suiteFrame.BackgroundColor3 = Color3.fromRGB(29,36,54)
+suiteFrame.BorderSizePixel = 0
+suiteFrame.AnchorPoint = Vector2.new(0.5,0.5)
+suiteFrame.Visible = true
+suiteFrame.Parent = PlayerGui
+
+-- Suite Title
+local titleBar = Instance.new("TextLabel")
+titleBar.Name = "SuiteTitle"
+titleBar.Text = "JARVIS SNEAKER SUITE"
+titleBar.Font = Enum.Font.FredokaOne
+titleBar.TextSize = 38
+titleBar.TextColor3 = Color3.fromRGB(84,255,235)
+titleBar.BackgroundTransparency = 1
+titleBar.Size = UDim2.new(1,0,0,56)
+titleBar.Position = UDim2.new(0,0,0,0)
+titleBar.Parent = suiteFrame
+
+local subtitleBar = Instance.new("TextLabel")
+subtitleBar.Name = "SuiteSubtitle"
+subtitleBar.Text = "Autobuy, $1 Snipe, Blacklist, Logs, Search, Stats"
+subtitleBar.Font = Enum.Font.Code
+subtitleBar.TextSize = 20
+subtitleBar.TextColor3 = Color3.fromRGB(175,210,230)
+subtitleBar.BackgroundTransparency = 1
+subtitleBar.Size = UDim2.new(1,0,0,34)
+subtitleBar.Position = UDim2.new(0,0,0,45)
+subtitleBar.Parent = suiteFrame
+
+-- Tab Bar (holds tab buttons horizontally)
+local tabBar = Instance.new("Frame")
+tabBar.Name = "TabBar"
+tabBar.Size = UDim2.new(1, -20, 0, 38)
+tabBar.Position = UDim2.new(0, 10, 0, 82)
+tabBar.BackgroundColor3 = Color3.fromRGB(21,27,47)
+tabBar.BorderSizePixel = 0
+tabBar.Parent = suiteFrame
+
+-- Tab Button Names
+local TabNames = {
+    "Autobuy",
+    "Blacklist",
+    "Search",
+    "Log",
+    "Sales Log",
+    "Stats",
+    "Sneaker Monitor",
+    "Emotes", -- <- new tab
+}
+local TabButtons = {}
+
+for i, tabName in ipairs(TabNames) do
+    local btn = Instance.new("TextButton")
+    btn.Name = "TabBtn"..tabName:gsub(" ","")
+    btn.Text = tabName
+    btn.Font = Enum.Font.FredokaOne
+    btn.TextSize = 22
+    btn.BackgroundColor3 = Color3.fromRGB(35,48,85)
+    btn.TextColor3 = Color3.fromRGB(235,235,245)
+    btn.Size = UDim2.new(0, 130, 0, 34)
+    btn.Position = UDim2.new(0, (i-1)*136, 0, 2)
+    btn.AutoButtonColor = true
+    btn.BorderSizePixel = 0
+    btn.Parent = tabBar
+    TabButtons[tabName] = btn
+end
+
+-- Tab content container
+local TabContents = Instance.new("Frame")
+TabContents.Name = "TabContents"
+TabContents.Size = UDim2.new(1, -32, 1, -140)
+TabContents.Position = UDim2.new(0,16,0,124)
+TabContents.BackgroundTransparency = 1
+TabContents.BorderSizePixel = 0
+TabContents.Parent = suiteFrame
+--[[
+================================================================================
+BLOCK 1.5: SESSION START & CURRENT MONEY CAPTURE
+================================================================================
+]]
+local sessionStartMoney = 0
+local function getCurrentMoney()
+    local leader = LocalPlayer:FindFirstChild("leaderstats")
+    if leader and leader:FindFirstChild("Cash") then
+        return leader.Cash.Value
+    end
+    -- Add more currency name fallbacks if your game uses a different stat!
+    if leader and leader:FindFirstChild("Money") then
+        return leader.Money.Value
+    end
+    if leader and leader:FindFirstChild("Balance") then
+        return leader.Balance.Value
+    end
+    return 0
+end
+sessionStartMoney = getCurrentMoney()
+--[[
+================================================================================
+BLOCK 1.75: CREATE MAIN GUI CONTAINER & MAIN FRAME
+================================================================================
+]]
+local gui = Instance.new("ScreenGui")
+gui.Name = "JarvisSneakerSuite"
+gui.IgnoreGuiInset = true
+gui.ResetOnSpawn = false
+-- Try CoreGui first, fallback to PlayerGui:
+pcall(function() gui.Parent = game:GetService("CoreGui") end)
+if not gui.Parent then gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 1040, 0, 720)
+frame.Position = UDim2.new(0.19,0,0.07,0)
+frame.BackgroundColor3 = Color3.fromRGB(18, 24, 38)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Name = "MainFrame"
+local glow = Instance.new("UIStroke", frame)
+glow.Thickness = 4
+glow.Color = Color3.fromRGB(0, 235, 255)
+glow.Transparency = 0.12
+local corner = Instance.new("UICorner", frame)
+corner.CornerRadius = UDim.new(0,23)
+
+local header = Instance.new("TextLabel", frame)
+header.Text = "JARVIS SNEAKER SUITE"
+header.Font = Enum.Font.GothamBlack
+header.Position = UDim2.new(0,0,0,13)
+header.Size = UDim2.new(1,0,0,48)
+header.BackgroundTransparency = 1
+header.TextColor3 = Color3.fromRGB(0, 255, 245)
+header.TextSize = 40
+
+local sub = Instance.new("TextLabel", frame)
+sub.Text = "Autobuy, $1 Snipe, Blacklist, Logs, Search, Stats"
+sub.Font = Enum.Font.Gotham
+sub.Position = UDim2.new(0,0,0,60)
+sub.Size = UDim2.new(1,0,0,21)
+sub.BackgroundTransparency = 1
+sub.TextColor3 = Color3.fromRGB(115,245,255)
+sub.TextSize = 18
+
+local console = Instance.new("TextLabel", frame)
+console.Position = UDim2.new(0.035,0,0,92)
+console.Size = UDim2.new(0.93,0,0,36)
+console.BackgroundTransparency = 0.06
+console.BackgroundColor3 = Color3.fromRGB(28,46,66)
+console.TextColor3 = Color3.fromRGB(255,255,245)
+console.TextXAlignment = Enum.TextXAlignment.Left
+console.TextYAlignment = Enum.TextYAlignment.Top
+console.Font = Enum.Font.Code
+console.TextSize = 19
+console.Name = "Console"
+console.ClipsDescendants = true
+console.Text = "JARVIS Sneaker Suite READY.\n"
+local ccorner = Instance.new("UICorner", console); ccorner.CornerRadius = UDim.new(0,13)
+function announce(msg)
+    console.Text = ((console.Text.."\n"..msg):gsub("\n+", "\n")):sub(-9000)
+end
+
+local close = Instance.new("TextButton", frame)
+close.Size = UDim2.new(0,40,0,40)
+close.Position = UDim2.new(1,-49,0,12)
+close.Text = "X"
+close.BackgroundColor3 = Color3.fromRGB(41,47,48)
+close.TextColor3 = Color3.fromRGB(225,65,85)
+close.Font = Enum.Font.GothamBold
+close.TextSize = 24
+close.BorderSizePixel = 0
+local closecorner = Instance.new("UICorner", close); closecorner.CornerRadius = UDim.new(1,0)
+close.MouseButton1Click:Connect(function() gui:Destroy() end)
+--[[
+================================================================================
+BLOCK 2: JARVIS TAB PANELS & UNIVERSAL TAB SWITCHING LOGIC
+================================================================================
+]]
+
+-- Panels: one for each tab
+local TabPanels = {}
+
+local function makePanel(tabName)
+    local p = Instance.new("Frame")
+    p.Name = tabName:gsub(" ", "").."Panel"
+    p.Size = UDim2.new(1,0,1,0)
+    p.Position = UDim2.new(0,0,0,0)
+    p.BackgroundColor3 = Color3.fromRGB(33,37,48)
+    p.BorderSizePixel = 0
+    p.Visible = false
+    p.Parent = TabContents
+    TabPanels[tabName] = p
+    return p
+end
+
+-- Create empty panels for all tabs (you'll fill in each with its corresponding feature content)
+for _, tabName in ipairs({"Autobuy","Blacklist","Search","Log","Sales Log","Stats","Sneaker Monitor","Emotes"}) do
+    makePanel(tabName)
+end
+
+-- Example (add module logic/content for each tab inside its panel)
+do
+    local label = Instance.new("TextLabel")
+    label.Text = "Autobuy coming soon!"
+    label.Font = Enum.Font.Code
+    label.TextSize = 28
+    label.TextColor3 = Color3.fromRGB(77,233,150)
+    label.BackgroundTransparency = 1
+    label.Size = UDim2.new(1,0,0,44)
+    label.Position = UDim2.new(0,0,0,72)
+    label.Parent = TabPanels["Autobuy"]
+end
+-- (repeat above template for Blacklist/Log etc, or fill with your real feature UIs)
+
+-- Tab switching logic
+local function showPanel(tabName)
+    for key,panel in pairs(TabPanels) do
+        panel.Visible = (key == tabName)
+    end
+    -- Tab active button highlight (optional, simple blue underline)
+    for k,btn in pairs(TabButtons) do
+        btn.BackgroundColor3 = (k == tabName) and Color3.fromRGB(44,88,225) or Color3.fromRGB(35,48,85)
+    end
+end
+
+-- Connect buttons to panel switching
+for tabName, btn in pairs(TabButtons) do
+    btn.MouseButton1Click:Connect(function()
+        showPanel(tabName)
+    end)
+end
+
+-- Show the default/start tab (Autobuy or any tab you prefer)
+showPanel("Autobuy")
+--[[
+================================================================================
+BLOCK 2.5: AMBIENT NEON GLOW PANEL SHELL (Animated background aura)
+================================================================================
+]]
+-- Place immediately after the main 'frame' is created in Block 2:
+local neonFrame = Instance.new("Frame")
+neonFrame.Size = UDim2.new(1,0,1,0)
+neonFrame.Position = UDim2.new(0,0,0,0)
+neonFrame.BackgroundTransparency = 0.81
+neonFrame.BackgroundColor3 = Color3.fromRGB(22,255,220)
+neonFrame.ZIndex = 0
+neonFrame.Parent = frame
+
+local neonGrad = Instance.new("UIGradient", neonFrame)
+neonGrad.Color = ColorSequence.new{
+   ColorSequenceKeypoint.new(0, Color3.fromRGB(0,255,180)),
+   ColorSequenceKeypoint.new(0.4, Color3.fromRGB(38,158,255)),
+   ColorSequenceKeypoint.new(0.8, Color3.fromRGB(60,230,255)),
+   ColorSequenceKeypoint.new(1, Color3.fromRGB(44,252,207))
+}
+neonGrad.Transparency = NumberSequence.new{
+   NumberSequenceKeypoint.new(0,0.08),
+   NumberSequenceKeypoint.new(0.4,0.23),
+   NumberSequenceKeypoint.new(1,0.85)
+}
+-- Animate the offset to create a moving glow effect
+RunService.RenderStepped:Connect(function()
+   neonGrad.Offset = Vector2.new(math.sin(tick()*0.23)*0.11, math.cos(tick()*0.22)*0.14)
+end)
+--[[
+================================================================================
+BLOCK 2.7: ANIMATED BUTTON HOVER (Scale & Color Tween for Tab/Main Buttons)
+================================================================================
+]]
+-- After your tabButtons are all created in Block 2, run this for each:
+local TweenService = game:GetService("TweenService")
+
+for _,btn in ipairs(tabButtons) do
+    -- Add a UIGradient for neon shimmer on buttons
+    local grad = Instance.new("UIGradient", btn)
+    grad.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0,Color3.fromRGB(0,255,180)),
+        ColorSequenceKeypoint.new(0.5,Color3.fromRGB(60,200,245)),
+        ColorSequenceKeypoint.new(1,Color3.fromRGB(0,160,255))
+    }
+    grad.Rotation = 90
+
+    -- Animate gradient shimmer (for scifi shine)
+    RunService.RenderStepped:Connect(function()
+        grad.Offset = Vector2.new(math.sin(tick()*0.88+btn.Position.X.Offset/100)*0.16, 0)
+    end)
+
+    -- Hover: scale up, highlight color, then revert smoothly
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.16, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+            Size = btn.Size + UDim2.new(0, 10, 0, 8),
+            BackgroundColor3 = Color3.fromRGB(0, 255, 210)
+        }):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.21, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, 168, 0, 48),
+            BackgroundColor3 = Color3.fromRGB(24,24,38)
+        }):Play()
+    end)
+end
+
+-- Example: For a main big action button (like "Autobuy" ON/OFF), you can use the same pattern:
+-- TweenService:Create(abBtn, TweenInfo.new(...), {Size=...,...}):Play() on MouseEnter/MouseLeave (see above).
+
+--[[
+================================================================================
+BLOCK 3: EMOTES TAB PANEL CONTENT & KEYBINDS (JARVIS SUITE STYLE)
+================================================================================
+]]
+
+local EmotesPanel = TabPanels["Emotes"]
+
+-- Title
+local emoteTitle = Instance.new("TextLabel")
+emoteTitle.Text = "Emote Macros"
+emoteTitle.Font = Enum.Font.FredokaOne
+emoteTitle.TextSize = 28
+emoteTitle.TextColor3 = Color3.fromRGB(150, 210, 255)
+emoteTitle.BackgroundTransparency = 1
+emoteTitle.Size = UDim2.new(1, 0, 0, 38)
+emoteTitle.Position = UDim2.new(0, 0, 0, 8)
+emoteTitle.Parent = EmotesPanel
+
+-- Macro config: add as many as you want
+local EmoteMacros = {
+    {
+        text = "/e [BEST] Jason Vorhees Shake - Dwerk (Don't Hide)",
+        btnLabel = "[Z] Jason Vorhees Shake",
+        keycode = Enum.KeyCode.Z,
+    },
+    -- Example for more:
+    -- {
+    --   text="/e Worm Wiggle",
+    --   btnLabel="[X] Worm Wiggle",
+    --   keycode=Enum.KeyCode.X,
+    -- },
+}
+local macroBtnHeight, macroSpace = 48, 12
+local KeycodeToMacroFn = {}
+
+for i, macro in ipairs(EmoteMacros) do
+    local btn = Instance.new("TextButton")
+    btn.Text = macro.btnLabel or macro.text
+    btn.Font = Enum.Font.FredokaOne
+    btn.TextSize = 22
+    btn.TextColor3 = Color3.fromRGB(242,242,255)
+    btn.BackgroundColor3 = Color3.fromRGB(39,60,130)
+    btn.Size = UDim2.new(1, -40, 0, macroBtnHeight)
+    btn.Position = UDim2.new(0, 20, 0, 52 + (i-1)*(macroBtnHeight + macroSpace))
+    btn.AutoButtonColor = true
+    btn.Parent = EmotesPanel
+
+    local function sendEmote()
+        local chatEvents = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+        if chatEvents and chatEvents:FindFirstChild("SayMessageRequest") then
+            chatEvents.SayMessageRequest:FireServer(macro.text, "All")
+        end
+    end
+    btn.MouseButton1Click:Connect(sendEmote)
+    if macro.keycode then
+        KeycodeToMacroFn[macro.keycode.Value] = sendEmote
+    end
+end
+
+-- Keybinds – only fire if EMOTES tab is visible
+game:GetService("UserInputService").InputBegan:Connect(function(input, gameProcessed)
+    if not EmotesPanel.Visible or gameProcessed then return end
+    local fn = KeycodeToMacroFn[input.KeyCode.Value]
+    if fn then fn() end
+end)
+--[[
+================================================================================
+BLOCK 3.6: JARVIS SNEAKER MONITOR SHOE LIST
+================================================================================
+]]
+local SM_SHOES = {
+--==== SPECIAL: ULTRA-RARE / $200M+ NOT GROUPED ====--
+    {name="Tralalelo Sneakers", max_price=1000000000},
+    {name="Mike Mercurial Superfly 9 Pink", max_price=1000000000},
+    {name="Lumberland 6-Inch Boot SpongeBro Blue", max_price=800000000},
+    {name="Golden Boot", max_price=700000000},
+    {name="Mike Dunk Low Gold", max_price=700000000},
+    {name="Zeezy Foam Runner Gold", max_price=700000000},
+    {name="Super x Mike SB Dunk Low 94 White", max_price=188000000},
+    {name="Adios Predator 19+ Pogba", max_price=808000000},
+    {name="Adios Performance Predator", max_price=70000000},
+
+--==== GROCS ====--
+    {name="Gold Grocs", max_price=215000000},
+    {name="KSI Grocs", max_price=48000000},
+    {name="Cinnamon Toast Crunch Grocs", max_price=18000000},
+    {name="Carrot Grocs", max_price=12200000},
+    {name="Shrek Grocs", max_price=5500000},
+    {name="Mater Grocs", max_price=415000},
+    {name="Toy Story Grocs", max_price=200000},
+
+--==== MIKE DUNK LOW/HIGH ====--
+    {name="Mike Dunk Low Panda-Monium Multi Color", max_price=120000000},
+    {name="Mike Dunk Low Ceramic", max_price=12000000},
+    {name="Mike Dunk Low Silver Blue", max_price=18000000},
+    {name="Mike Dunk Low Setsubun", max_price=100000},
+    {name="Mike Dunk High Panda", max_price=18000000},
+
+--==== MIKE SB DUNK LOW ====--
+    {name="Mike SB Dunk Low The Wizard of Oz", max_price=62000000},
+    {name="Mike SB Dunk Low Gold and Dark Red", max_price=23000000},
+    {name="Mike SB Dunk Low Riot Skateshop", max_price=34000000},
+    {name="Mike SB Dunk Low There Skateboards", max_price=38500000},
+    {name="Mike SB Dunk Low Super Cammellzee", max_price=38000000},
+    {name="Mike SB Dunk Low Fir and Fire Red", max_price=20800000},
+    {name="Mike SB Dunk Low Sunblush Futura", max_price=20000000},
+    {name="Mike SB Dunk Low Red Lobster", max_price=19000000},
+    {name="Mike SB Dunk Low Cactus Jack", max_price=20000000},
+    {name="Mike SB Dunk Low Crenshaw", max_price=18800000},
+    {name="Mike SB Dunk Low Sesame and Pear", max_price=17100000},
+    {name="Mike SB Dunk Low Pale Ivory", max_price=15100000},
+    {name="Mike SB Dunk Low Hayley Wilson", max_price=15800000},
+    {name="Mike SB Dunk Low Verdy Visty", max_price=14800000},
+    {name="Mike SB Dunk Low Burnt Sunrise", max_price=12800000},
+    {name="Mike SB Dunk Low Black and Smoke Grey", max_price=13700000},
+    {name="Mike SB Dunk Low Light Carbon Monarch", max_price=10500000},
+    {name="Mike SB Dunk Low Pigeon", max_price=10200000},
+    {name="Mike SB Dunk Low Blossom", max_price=9000000},
+    {name="Mike SB Dunk Low Buttercup", max_price=8200000},
+    {name="Mike SB Dunk Low White and Black", max_price=10000000},
+    {name="Mike SB Dunk Low Jaritos", max_price=6700000},
+    {name="Mike SB Dunk Low Sandy Bodecker", max_price=1100000},
+    {name="Mike SB Dunk Low Why So Sad", max_price=1100000},
+    {name="Mike SB Dunk Low Bubbles", max_price=7800000},
+    {name="Mike SB Dunk Low StrangeLove", max_price=7000000},
+    {name="Mike SB Dunk Low Chunky Dunky", max_price=900000},
+    {name="Mike SB Dunk Low Black and White", max_price=10000000},
+
+--==== MIKE KOBE 6 ====--
+    {name="Mike Kobe 6 Grinch", max_price=280000},
+    {name="Mike Kobe 6 Reverse Grinch", max_price=280000},
+
+--==== MIKE AIR FORCE 1 ====--
+    {name="Mike Air Force 1 Halloween", max_price=48000000},
+    {name="Mike Air Force 1 Lil Yachty", max_price=38000000},
+    {name="Mike Air Force 1 Pink Foam", max_price=36000000},
+    {name="Mike Air Force 1 Kobe", max_price=28000000},
+    {name="Mike Air Force 1 Kobe x Barcelona Violent", max_price=26000000},
+    {name="Mike Air Force 1 Varsity Red-White", max_price=20000000},
+    {name="Mike Air Force 1 Anthracite", max_price=16800000},
+    {name="Mike Air Force 1 x Stash", max_price=16000000},
+    {name="Mike Air Force 1 Tiffany", max_price=15000000},
+    {name="Mike Air Force 1 White Halloween", max_price=15000000},
+    {name="Mike Air Force 1 Linen", max_price=10000000},
+    {name="Mike Air Force 1 Trevor Scott Utopia", max_price=120000},
+    {name="Mike Air Force 1 Skeleton", max_price=110000},
+
+--==== ADIOS ZEEZY BOOST 350 ====--
+    {name="Adios Zeezy Boost 350 Zebra", max_price=75000000},
+    {name="Adios Zeezy Boost 350 Bone", max_price=7000000},
+    {name="Adios Zeezy Boost 350 Beluga", max_price=100000},
+
+--==== MIKE AIR ZEEZY 2 ====--
+    {name="Mike Air Zeezy 2 Pure Platinum", max_price=50000000},
+    {name="Mike Air Zeezy 2 Solar Red", max_price=9000000},
+
+--==== AIR BOGDAN 1 HIGH ====--
+    {name="Air Bogdan 1 High On-White Euro", max_price=830000000},
+    {name="Air Bogdan 1 High On-White Canary", max_price=685000000},
+    {name="Air Bogdan 1 High On-White UNC", max_price=78000000},
+    {name="Air Bogdan 1 High On-White Chicago", max_price=71000000},
+    {name="Air Bogdan 1 High Black Toe Reimagined", max_price=25000000},
+    {name="Air Bogdan 1 High Satin Shadow", max_price=20000000},
+    {name="Air Bogdan 1 High J Balvin", max_price=19000000},
+    {name="Air Bogdan 1 High Black And Gold", max_price=17000000},
+    {name="Air Bogdan 1 High Trevor Mocha", max_price=12800000},   -- <<< NEW ENTRY
+    {name="Air Bogdan 1 High Baroque Brown", max_price=15000000},
+    {name="Air Bogdan 1 High Spiderverse", max_price=2300000},
+    {name="Air Bogdan 1 High Trevor Fragment", max_price=600000},
+    {name="Air Bogdan 1 High Bior", max_price=500000},
+
+--==== AIR BOGDAN 1 LOW ====--
+    {name="Air Bogdan 1 Trevor Canary", max_price=200000000},
+    {name="Air Bogdan 1 Low Chicago", max_price=47200000},
+    {name="Air Bogdan 1 Low Obsidian", max_price=35000000},
+    {name="Air Bogdan 1 Low PSG", max_price=30000000},
+    {name="Air Bogdan 1 Low Trevor Olive", max_price=19200000},
+    {name="Air Bogdan 1 Low Trevor Mocha", max_price=17900000},
+    {name="Air Bogdan 1 Low Year of the Snake", max_price=15800000},
+    {name="Air Bogdan 1 Low Trevor Phantom", max_price=6400000},
+    {name="Air Bogdan 1 Low Trevor Fragment Sail", max_price=2200000},
+    {name="Air Bogdan 1 Low Trevor Reverse Mocha", max_price=450000},
+    {name="Air Bogdan 1 Low Bior", max_price=400000},
+    {name="Air Bogdan 1 Chicago", max_price=11000000},
+
+--==== AIR BOGDAN 3 ====--
+    {name="Air Bogdan 3 Pure Money", max_price=110000000},
+    {name="Air Bogdan 3 Wings", max_price=37000000},
+    {name="Air Bogdan 3 Treat Yourself", max_price=32000000},
+    {name="Air Bogdan 3 Black Cement", max_price=20000000},
+    {name="Air Bogdan 3 Lucky Shorts", max_price=15000000},
+    {name="Air Bogdan 3 White Cement", max_price=9800000},
+    {name="Air Bogdan 3 Cement Grey", max_price=5000000},
+    {name="Air Bogdan 3 A Ma Maniere", max_price=3000000},
+
+--==== AIR BOGDAN 4 ====--
+    {name="Air Bogdan 4 Trevor Scott Purple", max_price=200000000},
+    {name="Air Bogdan 4 On-White Sail", max_price=220000000},
+    {name="Air Bogdan 4 Orchid", max_price=55000000},
+    {name="Air Bogdan 4 Nigel", max_price=38000000},
+    {name="Air Bogdan 4 Black Cat", max_price=31000000},
+    {name="Air Bogdan 4 Wet Cement", max_price=28000000},
+    {name="Air Bogdan 4 Fear", max_price=25000000},
+    {name="Air Bogdan 4 A Ma Maniere", max_price=24800000},
+    {name="Air Bogdan 4 White Cement", max_price=19000000},
+    {name="Air Bogdan 4 White Thunder", max_price=17800000},
+    {name="Air Bogdan 4 SB Pine Green", max_price=7200000},
+    {name="Air Bogdan 4 Emenem Carhartt", max_price=7050000},
+    {name="Air Bogdan 4 UNC", max_price=3000000},
+    {name="Air Bogdan 4 Metallic Red", max_price=3000000},
+    {name="Air Bogdan 4 Trevor Scott", max_price=2100000},
+    {name="Air Bogdan 4 SB Navy", max_price=1200000},
+    {name="Air Bogdan 4 Kaws", max_price=1100000},
+    {name="Air Bogdan 4 Retro Lightning", max_price=410000},
+    {name="Air Bogdan 4 Military Blue", max_price=150000},
+    {name="Air Bogdan 4 Motorsport", max_price=140000},
+
+--==== AIR BOGDAN 5 ====--
+    {name="Air Bogdan 5 Fire Red", max_price=35800000},
+    {name="Air Bogdan 5 On-White Sail", max_price=35800000},
+    {name="Air Bogdan 5 Varsity Maize", max_price=26800000},
+    {name="Air Bogdan 5 Awake NY Pink", max_price=1800000},
+    {name="Air Bogdan 5 Awake NY Black", max_price=1800000},
+    {name="Air Bogdan 5 UNC", max_price=1000000},
+
+--==== AIR BOGDAN 6 ====--
+    {name="Air Bogdan 6 Reverse Oreo", max_price=28000000},
+    {name="Air Bogdan 6 Pearl", max_price=25800000},
+    {name="Air Bogdan 6 Olympic", max_price=19000000},
+
+--==== AIR BOGDAN 11 ====--
+    {name="Air Bogdan 11 Pearl", max_price=41800000},
+    {name="Air Bogdan 11 Gamma Blue", max_price=20000000},
+    {name="Air Bogdan 11 Low Diffused Blue", max_price=20000000},
+    {name="Air Bogdan 11 Cool Grey", max_price=5490000},
+    {name="Air Bogdan 11 Cherry", max_price=5200000},
+    {name="Air Bogdan 11 Concord", max_price=88000},
+
+--==== YUTTON / ON-WHITE / LUXURY ====--
+    {name="On-White Dunk Low Lot 01 of 50", max_price=150000000},
+    {name="On-White Air Force 1 ComplexCon Exclusive", max_price=10000000},
+    {name="On-White Air Force 1 Black", max_price=400000},
+    {name="On-White Dunk Low Lot 50 of 50", max_price=280000},
+    {name="Ivie Yuitton Air Force 1 Monogram Damier", max_price=10000000},
+    {name="Ivie Yuitton IY Trainer White Black", max_price=1000000},
+
+--==== MISCELLANEOUS (SINGLES/OTHER/UNIQUE) ====--
+    {name="Elf Shoes", max_price=28500000},
+    {name="Big Red Boots", max_price=5900000},
+    {name="Big Yellow Boots", max_price=500000},
+    {name="Mike Air Nag", max_price=35800000},
+    {name="Mike Wu-Tang Clan Dunk High", max_price=24000000},
+    {name="Mike Mercurial Superfly 9 Lemonade", max_price=1000000},
+    {name="Gocci Flip Flop", max_price=1000000},
+    {name="Skibidi Sneakers", max_price=14200000},
+    {name="Super x Mike SB Dunk Low 94 White", max_price=185000000},
+    {name="Kanye East Batesta", max_price=28900000},
+
+--==== Air Max Plus ====--
+    {name="Air Max Plus FC Barcelona", max_price=800000000},
+    {name="Air Max Plus Black Tea", max_price=28700000},
+    {name="Air Max Plus One Block Down Blue", max_price=450000},
+    {name="Air Max Plus Baltic Blue", max_price=450000},
+
+--==== Air Max 1 ====--
+    {name="Mike Air Max 1 Anniversary Red", max_price=38000000},
+    {name="Mike Air Max 1 Stranger Things", max_price=28000000},
+    {name="Mike Air Max 1 Cosmic Clay", max_price=10000000},
+    {name="Mike Air Max 1/97 Sean Wotherspoon", max_price=17700000},
+    {name="Mike Air Max Trevor Scott Baroque Brown", max_price=850000},
+
+--==== MIKE VOMERO ====--
+    {name="Mike Vomero 5 Bright Crimson", max_price=16000000},
+    {name="Mike Vomero 5 Metallic Silver", max_price=14500000},
+}
+--[[
+================================================================================
+BLOCK 3.7: SNEAKER MONITOR TAB & PANEL (JARVIS SM TAB INSERTED TO BIG JARVIS)
+================================================================================
+]]
+
+-- Add SM tab to the tabs table
+table.insert(tabs, "Sneaker Monitor")
+
+-- Add tab button and panel for Sneaker Monitor (sm)
+do
+    local i = #tabs
+    local btn = Instance.new("TextButton")
+    btn.Name = "TabBtn_SneakerMonitor"
+    btn.Parent = frame
+    btn.Size = UDim2.new(0, 126, 0, 42)
+    btn.Position = UDim2.new(0, 20 + (i-1)*137, 0, 105)
+    btn.BackgroundColor3 = Color3.fromRGB(24,24,38)
+    btn.TextColor3 = Color3.fromRGB(155,210,255)
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = "Sneaker Monitor"
+    btn.TextSize = 22
+    btn.BorderSizePixel = 0
+    btn.ZIndex = 3
+    local smCorn = Instance.new("UICorner", btn)
+    smCorn.CornerRadius = UDim.new(0,14)
+    tabButtons[i] = btn
+
+    local pan = Instance.new("Frame")
+    pan.Name = "TabPanel_SneakerMonitor"
+    pan.Parent = frame
+    pan.Position = UDim2.new(0.03,0,0,tabY)
+    pan.Size = UDim2.new(0.94,0,1,-(tabY+18))
+    pan.BackgroundTransparency = 0.42
+    pan.BackgroundColor3 = Color3.fromRGB(210, 235, 245)
+    pan.ZIndex = 1
+    pan.Visible = false
+    local smC = Instance.new("UICorner", pan)
+    smC.CornerRadius = UDim.new(0,13)
+    panels[i] = pan
+
+    -- Glass blur and shine for style
+    local smGlass = Instance.new("ImageLabel")
+    smGlass.Name = "GlassBlur"
+    smGlass.BackgroundTransparency = 1
+    smGlass.ImageTransparency = 0.56
+    smGlass.Size = UDim2.new(1,0,1,0)
+    smGlass.Position = UDim2.new(0,0,0,0)
+    smGlass.ZIndex = 2
+    smGlass.Image = "rbxassetid://8731281434"
+    smGlass.Parent = pan
+    local smShine = Instance.new("Frame")
+    smShine.BackgroundTransparency = 0.68
+    smShine.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    smShine.Size = UDim2.new(1,0,0,22)
+    smShine.Position = UDim2.new(0,0,0,0)
+    smShine.ZIndex = 3
+    smShine.Parent = pan
+
+    btn.MouseButton1Click:Connect(function()
+        for j,b in ipairs(tabButtons) do
+            b.BackgroundColor3 = Color3.fromRGB(24,24,38)
+            b.TextColor3 = Color3.fromRGB(144,200,255)
+            panels[j].Visible = false
+        end
+        btn.BackgroundColor3 = Color3.fromRGB(0,250,255)
+        btn.TextColor3 = Color3.fromRGB(24,24,29)
+        pan.Visible = true
+    end)
+end
+--[[
+================================================================================
+BLOCK 3.8: SNEAKER MONITOR TAB GUI & LOGIC (JARVIS SM TAB, ACCIDENTAL REPUT PREVENTION)
+================================================================================
+]]
+
+local pan = panels[#panels]
+
+local RED   = Color3.fromRGB(255,60,60)
+local GREEN = Color3.fromRGB(63,220,120)
+local GRAY  = Color3.fromRGB(44,44,44)
+local player = game:GetService("Players").LocalPlayer
+local myInfo = player:WaitForChild("PlayerInfo")
+local replicated = game:GetService("ReplicatedStorage")
+local remote = replicated:WaitForChild("RemoteEvents"):WaitForChild("ChangeDisplaySneaker")
+local UIS = game:GetService("UserInputService")
+local enableSMNotifs = true
+
+local title = Instance.new("TextLabel")
+title.Text = "Sneaker Monitor"
+title.Font = Enum.Font.FredokaOne
+title.TextColor3 = Color3.fromRGB(100,255,215)
+title.TextSize = 25
+title.BackgroundTransparency = 1
+title.Size = UDim2.new(1,0,0,42)
+title.Position = UDim2.new(0,0,0,2)
+title.Parent = pan
+
+local smStatusLabels = {}
+for i=1,3 do
+    local lab = Instance.new("TextLabel")
+    lab.Font = Enum.Font.Code
+    lab.TextSize = 18
+    lab.BackgroundTransparency = 0.2
+    lab.BackgroundColor3 = Color3.fromRGB(33,33,44)
+    lab.BorderSizePixel = 0
+    lab.TextColor3 = Color3.fromRGB(222,222,222)
+    lab.TextXAlignment = Enum.TextXAlignment.Left
+    lab.Size = UDim2.new(0.95,0,0,44)
+    lab.Position = UDim2.new(0.025,0,0,50 + (i-1)*52)
+    lab.Name = "Status"..i
+    lab.Parent = pan
+    smStatusLabels[i] = lab
+end
+
+local notifToggle = Instance.new("TextButton")
+notifToggle.Size = UDim2.new(0.45, 0, 0, 35)
+notifToggle.Position = UDim2.new(0.06, 0, 0, 212)
+notifToggle.Text = "Notifs: ON"
+notifToggle.BackgroundColor3 = Color3.fromRGB(60,180,100)
+notifToggle.TextColor3 = Color3.new(1,1,1)
+notifToggle.Font = Enum.Font.Code
+notifToggle.TextSize = 17
+notifToggle.Parent = pan
+
+notifToggle.MouseButton1Click:Connect(function()
+    enableSMNotifs = not enableSMNotifs
+    notifToggle.Text = "Notifs: " .. (enableSMNotifs and "ON" or "OFF")
+    notifToggle.BackgroundColor3 = enableSMNotifs and Color3.fromRGB(60,180,100) or Color3.fromRGB(80,80,90)
+end)
+
+local removeAllBtn = Instance.new("TextButton")
+removeAllBtn.Size = UDim2.new(0.42, 0, 0, 35)
+removeAllBtn.Position = UDim2.new(0.52, 4, 0, 212)
+removeAllBtn.Text = "REMOVE ALL (Q)"
+removeAllBtn.BackgroundColor3 = Color3.fromRGB(220,54,54)
+removeAllBtn.TextColor3 = Color3.new(1,1,1)
+removeAllBtn.Font = Enum.Font.FredokaOne
+removeAllBtn.TextSize = 18
+removeAllBtn.Parent = pan
+
+local function removeAll()
+    for i=1,3 do
+        local args = {"", "DisplaySneaker"..i, 0}
+        remote:FireServer(unpack(args))
+    end
+end
+removeAllBtn.MouseButton1Click:Connect(removeAll)
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if pan.Visible and not gameProcessed and input.KeyCode == Enum.KeyCode.Q then
+        removeAll()
+    end
+end)
+
+--==================== MODAL RE-EQUIP GUI BLOCK ====================--
+
+local reEquipGui = Instance.new("ScreenGui")
+reEquipGui.Name = "SMReEquipPrompt"
+reEquipGui.ResetOnSpawn = false
+reEquipGui.Enabled = false
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 340, 0, 215)
+Frame.Position = UDim2.new(0.5, -170, 0.5, -108)
+Frame.BackgroundColor3 = Color3.fromRGB(44,44,44)
+Frame.BorderSizePixel = 0
+Frame.Active = true
+Frame.Parent = reEquipGui
+
+local Title = Instance.new("TextLabel")
+Title.Text = "Re-equip Removed Shoe"
+Title.Font = Enum.Font.FredokaOne
+Title.TextSize = 23
+Title.TextColor3 = Color3.fromRGB(110, 250, 180)
+Title.Size = UDim2.new(1,0,0,36)
+Title.Position = UDim2.new(0,0,0,0)
+Title.BackgroundTransparency = 1
+Title.Parent = Frame
+
+local ShoeLabel = Instance.new("TextLabel")
+ShoeLabel.Text = "--"
+ShoeLabel.Font = Enum.Font.Code
+ShoeLabel.TextSize = 18
+ShoeLabel.TextColor3 = Color3.fromRGB(222,222,222)
+ShoeLabel.Size = UDim2.new(1, -18, 0, 22)
+ShoeLabel.Position = UDim2.new(0, 9, 0, 38)
+ShoeLabel.BackgroundTransparency = 1
+ShoeLabel.TextXAlignment = Enum.TextXAlignment.Left
+ShoeLabel.Parent = Frame
+
+local PriceBox = Instance.new("TextBox")
+PriceBox.ClearTextOnFocus = false
+PriceBox.Font = Enum.Font.Code
+PriceBox.TextSize = 20
+PriceBox.TextColor3 = Color3.fromRGB(200, 255, 200)
+PriceBox.BackgroundColor3 = Color3.fromRGB(22,22,22)
+PriceBox.Size = UDim2.new(0.86, 0, 0, 32)
+PriceBox.Position = UDim2.new(0.07, 0, 0, 72)
+PriceBox.Text = ""
+PriceBox.PlaceholderText = "Enter price..."
+PriceBox.Parent = Frame
+
+local ConfirmLabel = Instance.new("TextLabel")
+ConfirmLabel.Text = "Type \"Rome\" below to confirm"
+ConfirmLabel.Font = Enum.Font.Code
+ConfirmLabel.TextSize = 18
+ConfirmLabel.TextColor3 = Color3.fromRGB(170,255,170)
+ConfirmLabel.BackgroundTransparency = 1
+ConfirmLabel.Size = UDim2.new(1, -18, 0, 22)
+ConfirmLabel.Position = UDim2.new(0, 9, 0, 112)
+ConfirmLabel.TextXAlignment = Enum.TextXAlignment.Left
+ConfirmLabel.Parent = Frame
+
+local ConfirmBox = Instance.new("TextBox")
+ConfirmBox.ClearTextOnFocus = true
+ConfirmBox.Font = Enum.Font.Code
+ConfirmBox.TextSize = 20
+ConfirmBox.TextColor3 = Color3.fromRGB(250, 210, 100)
+ConfirmBox.BackgroundColor3 = Color3.fromRGB(34,28,10)
+ConfirmBox.Size = UDim2.new(0.6, 0, 0, 28)
+ConfirmBox.Position = UDim2.new(0.07, 0, 0, 138)
+ConfirmBox.Text = ""
+ConfirmBox.PlaceholderText = "Enter Rome to confirm"
+ConfirmBox.Parent = Frame
+
+local Confirm = Instance.new("TextButton")
+Confirm.Text = "CONFIRM"
+Confirm.Font = Enum.Font.FredokaOne
+Confirm.TextSize = 20
+Confirm.BackgroundColor3 = Color3.fromRGB(80,200,120)
+Confirm.Size = UDim2.new(0.38, 0, 0, 32)
+Confirm.Position = UDim2.new(0.07, 0, 0, 174)
+Confirm.TextColor3 = Color3.new(1,1,1)
+Confirm.Parent = Frame
+
+local Cancel = Instance.new("TextButton")
+Cancel.Text = "CANCEL"
+Cancel.Font = Enum.Font.FredokaOne
+Cancel.TextSize = 20
+Cancel.BackgroundColor3 = Color3.fromRGB(200,60,60)
+Cancel.Size = UDim2.new(0.38, 0, 0, 32)
+Cancel.Position = UDim2.new(0.55, 0, 0, 174)
+Cancel.TextColor3 = Color3.new(1,1,1)
+Cancel.Parent = Frame
+
+reEquipGui.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+
+--================== END MODAL RE-EQUIP GUI BLOCK ==================--
+
+local lastSlotState = {nil,nil,nil}
+local promptOpen = {false, false, false}
+local pendingPrompt = {nil, nil, nil}
+
+game:GetService("RunService").RenderStepped:Connect(function()
+    if not pan.Visible then return end
+    for i = 1,3 do
+        local ds = myInfo:FindFirstChild("DisplaySneaker"..i)
+        local statusText, col, emoji = "EMPTY", GRAY, "⚪"
+        --===* If there's a pending prompt and slot is now empty, show prompt! *===--
+        if not ds or ds.Value == "" then
+            if pendingPrompt[i] and not promptOpen[i] then
+                promptOpen[i] = true -- block all reentry until closed
+                local slotName, removedName, mp = unpack(pendingPrompt[i])
+                coroutine.wrap(function()
+                    reEquipGui.Enabled = true
+                    ShoeLabel.Text = ("Shoe: %s\nSlot: %s"):format(removedName, slotName)
+                    PriceBox.Text = tostring(mp or "")
+                    ConfirmBox.Text = ""
+                    local inputLock = true
+                    local conn1, conn2, conn3
+
+                    local function validateConfirm()
+                        -- Rome check
+                        local allowed = (ConfirmBox.Text == "Rome")
+                        Confirm.BackgroundColor3 = allowed and Color3.fromRGB(80,200,120) or Color3.fromRGB(100,110,100)
+                        return allowed
+                    end
+                    ConfirmBox:GetPropertyChangedSignal("Text"):Connect(validateConfirm)
+                    validateConfirm()
+
+                    local function closePrompt()
+                        reEquipGui.Enabled = false
+                        inputLock = false
+                        if conn1 then conn1:Disconnect() end
+                        if conn2 then conn2:Disconnect() end
+                        if conn3 then conn3:Disconnect() end
+                        promptOpen[i] = false
+                        pendingPrompt[i] = nil
+                    end
+                    conn1 = Confirm.MouseButton1Click:Connect(function()
+                        local v = tonumber(PriceBox.Text)
+                        if (ConfirmBox.Text ~= "Rome") then
+                            ConfirmBox.Text = ""
+                            ConfirmBox.PlaceholderText = "MUST enter Rome"
+                            validateConfirm()
+                            return
+                        end
+                        if not (v and v > 0) then
+                            PriceBox.Text = ""
+                            PriceBox.PlaceholderText = "Enter valid price..."
+                            return
+                        end
+                        closePrompt()
+                        local args = {removedName, slotName, v}
+                        remote:FireServer(unpack(args))
+                        game:GetService("StarterGui"):SetCore("SendNotification", {
+                            Title = "Re-equipped!",
+                            Text = ("%s added back for $%s"):format(removedName, v),
+                            Duration = 3,
+                        })
+                    end)
+                    conn2 = Cancel.MouseButton1Click:Connect(function()
+                        closePrompt()
+                    end)
+                    conn3 = UIS.InputBegan:Connect(function(input, gP)
+                        if not inputLock or gP then return end
+                        if input.KeyCode == Enum.KeyCode.Return then
+                            Confirm.MouseButton1Click:Fire()
+                        elseif input.KeyCode == Enum.KeyCode.Escape then
+                            Cancel.MouseButton1Click:Fire()
+                        end
+                    end)
+                    while inputLock do wait() end
+                end)()
+            end
+            lastSlotState[i] = nil
+        else
+            statusText = ("%s ($%s)"):format(ds.Value, tostring(ds:GetAttribute("Price") or "??"))
+            local matching = nil
+            for _,shoe in ipairs(SM_SHOES) do
+                if ds.Value == shoe.name then
+                    matching = shoe
+                    break
+                end
+            end
+            if matching then
+                local price = ds:GetAttribute("Price") or 0
+                if tonumber(price) and tonumber(price) > matching.max_price then
+                    col = GREEN; emoji = "🟢"
+                    if enableSMNotifs and lastSlotState[i] ~= "GREEN_"..matching.name then
+                        game:GetService("StarterGui"):SetCore("SendNotification", {
+                            Title = "🟢 GREEN!",
+                            Text = ("%s in slot %d is GOOD TO GO!"):format(matching.name, i),
+                            Duration = 4,
+                        })
+                        lastSlotState[i] = "GREEN_"..matching.name
+                    end
+                    promptOpen[i] = false
+                    pendingPrompt[i] = nil
+                elseif tonumber(price) and tonumber(price) <= matching.max_price then
+                    col = RED; emoji = "🔴"
+                    -- If not already pending, remove and set pending!
+                    if enableSMNotifs and lastSlotState[i] ~= "RED_"..matching.name and not promptOpen[i] and not pendingPrompt[i] then
+                        lastSlotState[i] = "RED_"..matching.name
+                        game:GetService("StarterGui"):SetCore("SendNotification", {
+                            Title = "🔴 RED!",
+                            Text = ("%s in slot %d is UNDER price - REMOVED!"):format(matching.name, i),
+                            Duration = 4,
+                        })
+                        local slotName = "DisplaySneaker"..i
+                        local removedName = ds.Value
+                        remote:FireServer("", slotName, 0)
+                        pendingPrompt[i] = {slotName, removedName, matching.max_price}
+                        promptOpen[i] = false
+                    end
+                end
+            else
+                lastSlotState[i] = nil
+                promptOpen[i] = false
+                pendingPrompt[i] = nil
+            end
+        end
+        smStatusLabels[i].Text = ("%s Slot %d: %s"):format(emoji, i, statusText)
+        smStatusLabels[i].BackgroundColor3 = col:Lerp(Color3.new(0,0,0),0.84)
+    end
+end)
+--[[
+================================================================================
+BLOCK 4: AUTOBUY LOGIC (NO "MainPart" check!)
+================================================================================
+]]
+
+local recentBuys = {}
+
+function showAutoBuyPopup(msg)
+    print("[AUTOBUY]", msg)
+    announce("[AUTOBUY] " .. msg)
+end
+
+RunService.Heartbeat:Connect(function()
+    if not (autoBuy or oneDollarSnipe) then return end
+    local tablesFolder = Workspace:FindFirstChild("Tables")
+    if not tablesFolder or not buyDisplayRemote then return end
+    for _,tbl in ipairs(tablesFolder:GetChildren())do
+        for i=1,3 do
+            local display = tbl:FindFirstChild("DisplaySneaker"..i)
+            -- ONLY these 2 checks:
+            if display and display:FindFirstChild("SneakerValue") and display:FindFirstChild("Price") then
+                local sneakerValue = tostring(display.SneakerValue.Value)
+                local price = tonumber(display.Price.Value)
+                local buyKey = sneakerValue..":"..tostring(price)
+                if recentBuys[buyKey] and tick()-recentBuys[buyKey]<1 then
+                    continue
+                end
+                if isBlacklisted(sneakerValue) then continue end
+
+                if oneDollarSnipe and price == 1 then
+                    buyDisplayRemote:FireServer(display, sneakerValue, price)
+                    showAutoBuyPopup("[$1 SNIPE]\n" .. sneakerValue .. " @ $1\nTime: " .. os.date("%I:%M:%S %p"))
+                    logPurchase(sneakerValue, price, os.date("%I:%M:%S %p"))
+                    recentBuys[buyKey] = tick()
+                    --=== UPDATED: Logging this sale with username ===--
+                    table.insert(serverSalesLog, {
+                        time = os.time(),
+                        user = game:GetService("Players").LocalPlayer.Name,
+                        shoe = sneakerValue,
+                        price = price,
+                    })
+                    continue
+                end
+
+                if autoBuy then
+                    local allowed,maxPrice=false,nil
+                    for _,preset in ipairs(presetSneakers) do
+                        if sneakerValue:lower() == preset.full:lower() or sneakerValue:lower() == preset.label:lower() then
+                            maxPrice = shoeMaxPrices[preset.full] or preset.default
+                            allowed = true
+                            break
+                        end
+                    end
+                    if allowed and maxPrice and price <= maxPrice then
+                        buyDisplayRemote:FireServer(display, sneakerValue, price)
+                        showAutoBuyPopup("[AUTOBUY]\n" .. sneakerValue .. " @ $" .. formatNumber(price) .. "\nTime: " .. os.date("%I:%M:%S %p"))
+                        logPurchase(sneakerValue, price, os.date("%I:%M:%S %p"))
+                        recentBuys[buyKey] = tick()
+                        --=== UPDATED: Logging this sale with username ===--
+                        table.insert(serverSalesLog, {
+                            time = os.time(),
+                            user = game:GetService("Players").LocalPlayer.Name,
+                            shoe = sneakerValue,
+                            price = price,
+                        })
+                    end
+                end
+            end
+        end
+    end
+end)
+--[[
+================================================================================
+BLOCK 4.1: JARVIS EMOTES TAB - INTEGRATED IN MAIN TABS, STYLED SUITE
+================================================================================
+]]
+
+-- GROW THE JARVIS SUITE UI!
+local suiteFrame = script.Parent:FindFirstChild("JarvisSuite") -- or whatever your frame name is
+if suiteFrame then
+    suiteFrame.Size = UDim2.new(0, 1010, 0, 780) -- make it larger, tweak as you wish
+end
+
+-- Add a new tab to the main tab bar (assuming TabButtons is an array of tab button instances)
+local TabsList = {"Autobuy", "Blacklist", "Search", "Log", "Sales Log", "Stats", "Sneaker Monitor", "Emotes"}
+-- If you have a loop that creates tabs, add "Emotes" there, or manually create new tab button:
+local emoteTabBtn = Instance.new("TextButton")
+emoteTabBtn.Name = "TabBtnEmotes"
+emoteTabBtn.Text = "Emotes"
+emoteTabBtn.Size = UDim2.new(0, 138, 0, 34)
+emoteTabBtn.Position = UDim2.new(0, 780, 0, 52) -- update position so it doesn't overlap (or use tabbar logic for x)
+emoteTabBtn.BackgroundColor3 = Color3.fromRGB(35,48,85)
+emoteTabBtn.TextColor3 = Color3.fromRGB(235,235,245)
+emoteTabBtn.Font = Enum.Font.FredokaOne
+emoteTabBtn.TextSize = 22
+emoteTabBtn.AutoButtonColor = true
+emoteTabBtn.Parent = suiteFrame.TabBar or suiteFrame -- Attach to your real tab bar
+
+-- The EMOTES TAB PANEL
+local EmotesPanel = Instance.new("Frame")
+EmotesPanel.Name = "EmotesPanel"
+EmotesPanel.Size = UDim2.new(1, -32, 1, -100)
+EmotesPanel.Position = UDim2.new(0, 16, 0, 88)
+EmotesPanel.BackgroundColor3 = Color3.fromRGB(34,38,48)
+EmotesPanel.BorderSizePixel = 0
+EmotesPanel.Visible = false -- Starts hidden!
+EmotesPanel.Parent = suiteFrame
+
+-- Title
+local emotesTitle = Instance.new("TextLabel")
+emotesTitle.Text = "Emote Macros"
+emotesTitle.Font = Enum.Font.FredokaOne
+emotesTitle.TextSize = 28
+emotesTitle.TextColor3 = Color3.fromRGB(150, 210, 255)
+emotesTitle.BackgroundTransparency = 1
+emotesTitle.Size = UDim2.new(1, 0, 0, 38)
+emotesTitle.Position = UDim2.new(0, 0, 0, 0)
+emotesTitle.Parent = EmotesPanel
+
+-- Macro config (add more easily!)
+local EmoteMacros = {
+    {
+        text = "/e [BEST] Jason Vorhees Shake - Dwerk (Don't Hide)",
+        btnLabel = "[Z] Jason Vorhees Shake",
+        keycode = Enum.KeyCode.Z,
+    },
+    --[[ {
+        text="/e Worm Wiggle", btnLabel="[X] Worm Wiggle", keycode=Enum.KeyCode.X
+    }, ]]
+}
+
+local macroBtnHeight, macroSpace = 48, 10
+local KeycodeToMacro = {}
+
+for i, macro in ipairs(EmoteMacros) do
+    local btn = Instance.new("TextButton")
+    btn.Text = macro.btnLabel or macro.text
+    btn.Font = Enum.Font.FredokaOne
+    btn.TextSize = 21
+    btn.TextColor3 = Color3.fromRGB(242,242,255)
+    btn.BackgroundColor3 = Color3.fromRGB(39,60,130)
+    btn.Size = UDim2.new(1, -40, 0, macroBtnHeight)
+    btn.Position = UDim2.new(0, 22, 0, 52 + (i-1)*(macroBtnHeight + macroSpace))
+    btn.AutoButtonColor = true
+    btn.Parent = EmotesPanel
+
+    local function sendEmote()
+        local msg = macro.text
+        local event = game:GetService("ReplicatedStorage"):FindFirstChild("DefaultChatSystemChatEvents")
+        if event and event:FindFirstChild("SayMessageRequest") then
+            event.SayMessageRequest:FireServer(msg, "All")
+        end
+    end
+    btn.MouseButton1Click:Connect(sendEmote)
+    if macro.keycode then
+        KeycodeToMacro[macro.keycode.Value] = sendEmote
+    end
+end
+
+-- Keybinds: only active if tab visible
+game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
+    if not EmotesPanel.Visible or gp then return end
+    local fn = KeycodeToMacro[input.KeyCode.Value]
+    if fn then
+        fn()
+    end
+end)
+
+-- Tab BUTTON logic (standard tab switching pattern)
+emoteTabBtn.MouseButton1Click:Connect(function()
+    -- Hide all panels except EmotesPanel
+    for _, child in ipairs(suiteFrame:GetChildren()) do
+        if child:IsA("Frame") and child.Name:find("Panel") then
+            child.Visible = (child == EmotesPanel)
+        end
+    end
+    -- Optionally, highlight the active tab button/underline/etc (your system may do this already)
+end)
+--[[
+================================================================================
+BLOCK 4.5: BAT SENSES CHAMS - DEBUG & DEMO VERSION
+================================================================================
+]]
+
+local BatChamsEnabled = false
+local BatChamsColor = Color3.fromRGB(0,255,240)
+local BatChamsTable = {}
+
+-- Helper: Remove all chams
+local function ClearBatChams()
+    for part, adorn in pairs(BatChamsTable) do
+        if adorn and adorn.Parent then adorn:Destroy() end
+    end
+    BatChamsTable = {}
+end
+
+-- Helper: Add chams to any "BasePart" (as a visual test, shows ESP works)
+local function TestBatChams()
+    ClearBatChams()
+    if not BatChamsEnabled then return end
+
+    -- DEMO: highlight the first visible BasePart in workspace
+    local foundOne = false
+    for _,obj in ipairs(workspace:GetChildren()) do
+        if obj:IsA("BasePart") then
+            local box = Instance.new("BoxHandleAdornment")
+            box.Adornee = obj
+            box.Size = obj.Size + Vector3.new(0.6,0.6,0.6)
+            box.Color3 = Color3.fromRGB(255,0,0)
+            box.Transparency = 0.28
+            box.AlwaysOnTop = true
+            box.ZIndex = 12
+            box.Parent = obj
+            BatChamsTable[obj] = box
+            foundOne = true
+            print("[BatTest] Showing cham box on:", obj, obj.Name)
+            break -- only one demo, for test
+        end
+    end
+    if not foundOne then
+        print("[BatTest] No BasePart in workspace found. Is your game using Models or Folders?")
+    end
+
+    -- Also, print out ALL workspace children names for debug!
+    print("Workspace children:")
+    for _,obj in ipairs(workspace:GetChildren()) do
+        print("   ",obj.Name)
+    end
+end
+
+-- GUI toggle button
+local batBox = Instance.new("TextButton", panels[1])
+batBox.Text = "Bat Senses: OFF"
+batBox.Font = Enum.Font.GothamBlack
+batBox.TextColor3 = Color3.fromRGB(20,50,40)
+batBox.TextSize = 20
+batBox.Size = UDim2.new(0,180,0,44)
+batBox.Position = UDim2.new(0,440,0,24)
+batBox.BackgroundColor3 = Color3.fromRGB(85,255,225)
+batBox.BorderSizePixel = 0
+local bcCorn = Instance.new("UICorner", batBox); bcCorn.CornerRadius = UDim.new(0,13)
+batBox.MouseButton1Click:Connect(function()
+    BatChamsEnabled = not BatChamsEnabled
+    batBox.Text = "Bat Senses: " .. (BatChamsEnabled and "ON" or "OFF")
+    batBox.BackgroundColor3 = BatChamsEnabled and Color3.fromRGB(40,200,180) or Color3.fromRGB(85,255,225)
+    TestBatChams()
+end)
+
+-- Clean up if toggled off
+game:GetService("RunService").RenderStepped:Connect(function()
+    if not BatChamsEnabled then
+        ClearBatChams()
+    end
+end)
+--[[
+================================================================================
+BLOCK 4.6: SOUND AND VISUAL ALERT (Plays YOUR custom ding audio, `SoundService` parent)
+================================================================================
+]]
+
+local PlayAlert = true -- Toggle as desired
+
+local alertSound = Instance.new("Sound")
+alertSound.Name = "BUY_ALERT"
+alertSound.SoundId = "rbxassetid://108968648372229"   -- <<<< YOUR custom audio!
+alertSound.Volume = 1
+alertSound.Parent = game:GetService("SoundService")    -- <<<< Best practice for menu/alert sounds
+
+local function flashPanel(panel)
+    if not panel then return end
+    local orig = panel.BackgroundColor3
+    panel.BackgroundColor3 = Color3.fromRGB(0,255,200)
+    task.spawn(function()
+        task.wait(0.15)
+        panel.BackgroundColor3 = orig
+    end)
+end
+
+-- Toggle button for alerts (drop on panels[1])
+local alertToggleBtn = Instance.new("TextButton", panels[1])
+alertToggleBtn.Text = "Ding Alert: ON"
+alertToggleBtn.Font = Enum.Font.GothamBlack
+alertToggleBtn.TextColor3 = Color3.fromRGB(10,10,10)
+alertToggleBtn.TextSize = 20
+alertToggleBtn.Size = UDim2.new(0,166,0,44)
+alertToggleBtn.Position = UDim2.new(0,650,0,24)
+alertToggleBtn.BackgroundColor3 = Color3.fromRGB(230,255,120)
+alertToggleBtn.BorderSizePixel = 0
+local alCorn = Instance.new("UICorner", alertToggleBtn); alCorn.CornerRadius = UDim.new(0,13)
+alertToggleBtn.MouseButton1Click:Connect(function()
+    PlayAlert = not PlayAlert
+    alertToggleBtn.Text = "Ding Alert: " .. (PlayAlert and "ON" or "OFF")
+    alertToggleBtn.BackgroundColor3 = PlayAlert and Color3.fromRGB(230,255,120) or Color3.fromRGB(120,130,140)
+end)
+
+-- Use in your buy/snipe logic like this (insert inside each autobuy/snipe trigger):
+if PlayAlert then
+    alertSound:Play()
+    flashPanel(panels[1])
+end
+--[[
+================================================================================
+BLOCK 4.7: SHOES APP BUYER (FAST, ACTIVE, LOGS EVERY TRY TO CONSOLE, debug table content, quiet on empty)
+================================================================================
+]]
+
+print("SHOESAPP BLOCK INITIALIZED") -- DEBUG: confirms script block loads
+
+local ShoesAppBuyer = false
+local appBuyBtn = Instance.new("TextButton", panels[1])
+appBuyBtn.Size = UDim2.new(0,186,0,44)
+appBuyBtn.Position = UDim2.new(0,635,0,79)
+appBuyBtn.Text = "ShoesAppBuyer: OFF"
+appBuyBtn.Font = Enum.Font.GothamBlack
+appBuyBtn.TextColor3 = Color3.fromRGB(24,24,24)
+appBuyBtn.TextSize = 20
+appBuyBtn.BackgroundColor3 = Color3.fromRGB(35,255,130)
+appBuyBtn.AutoButtonColor = true
+local sabCorn = Instance.new("UICorner", appBuyBtn); sabCorn.CornerRadius = UDim.new(0,13)
+
+appBuyBtn.MouseButton1Click:Connect(function()
+    ShoesAppBuyer = not ShoesAppBuyer
+    appBuyBtn.Text = "ShoesAppBuyer: " .. (ShoesAppBuyer and "ON" or "OFF")
+    appBuyBtn.BackgroundColor3 = ShoesAppBuyer and Color3.fromRGB(25,210,100) or Color3.fromRGB(35,255,130)
+    announce("ShoesAppBuyer: " .. (ShoesAppBuyer and "ENABLED" or "DISABLED"))
+    print("ShoesAppBuyer toggled:", ShoesAppBuyer) -- DEBUG: confirms button click
+end)
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local buyAppRemote = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("BuyShoesApp")
+local getAppData = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("GetShoesAppData")
+
+local shoesAppTryCount = 0
+
+print("SHOESAPP MAIN LOOP START") -- DEBUG: confirms loop is attempting to start
+task.spawn(function()
+    while true do
+        if ShoesAppBuyer then
+            shoesAppTryCount = shoesAppTryCount + 1
+            print("ShoesAppBuyer TRY #", shoesAppTryCount) -- DEBUG: always visible in Output
+            announce("ShoesAppBuyer Attempt #" .. shoesAppTryCount)
+            local success, appShoes = pcall(function()
+                return getAppData:InvokeServer()
+            end)
+            print("ShoesAppBuyer RESULT:", success, typeof(appShoes), appShoes)
+            if success and type(appShoes) == "table" then
+                if #appShoes == 0 then
+                    -- No shoes in app
+                    -- print("ShoesAppBuyer: No shoes found in Shoes App.") -- Uncomment if you want to see when empty
+                    -- announce("ShoesAppBuyer: Nothing to buy!")         -- Uncomment for a visible announce
+                else
+                    for _,shoeObj in ipairs(appShoes) do
+                        print("RAW SHOE OBJ:", typeof(shoeObj), shoeObj)
+                        if typeof(shoeObj) == "table" then
+                            -- Print key/value pairs for debug
+                            for k,v in pairs(shoeObj) do print("   ",k,v) end
+                            -- Use .Name if present
+                            if shoeObj.Name then
+                                print("ATTEMPTING BUY:", shoeObj.Name)
+                                announce("App Buy: "..tostring(shoeObj.Name))
+                                pcall(function()
+                                    buyAppRemote:InvokeServer(shoeObj.Name)
+                                end)
+                            else
+                                print("No .Name field in shoeObj table")
+                            end
+                        else
+                            print("Non-table shoeObj:", shoeObj)
+                        end
+                    end
+                end
+            end
+            task.wait(0.001)
+        else
+            task.wait(0.03)
+        end
+    end
+end)
+--[[
+================================================================================
+BLOCK 4.8: DIRECT SNEAKERFRAME TABLE COLOR INDICATOR (STRONGEST-FORCE DEBUG)
+================================================================================
+]]
+
+local function getPresetMax(shoeName)
+    for _,preset in ipairs(presetSneakers) do
+        if shoeName:lower() == preset.full:lower() or shoeName:lower() == preset.label:lower() then
+            return shoeMaxPrices[preset.full] or preset.default
+        end
+    end
+    return nil
+end
+
+local function parsePrice(str)
+    -- Handles $111.1M, $3.2K, etc.
+    local num = tostring(str):gsub("[%$,]", "")
+    num = num:gsub("M", "e6"):gsub("K", "e3")
+    local f = tonumber(num)
+    if not f then
+        local base, exp = num:match("([%d%.]+)e([%d%-]+)")
+        if base and exp then
+            return tonumber(base) * (10 ^ tonumber(exp))
+        end
+    end
+    return f
+end
+
+task.spawn(function()
+    while true do
+        local playerGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+        if playerGui and playerGui:FindFirstChild("TableGuis") then
+            for _,billboard in ipairs(playerGui.TableGuis:GetChildren()) do
+                local frame = billboard:FindFirstChild("SneakerFrame")
+                if frame then
+                    print("== SneakerFrame found:", frame.Name)
+                    -- Get price
+                    local priceText = nil
+                    if frame:FindFirstChild("BGFrame") then
+                        for _,child in ipairs(frame.BGFrame:GetChildren()) do
+                            if child:IsA("TextLabel") and child.Text:find("%$") then
+                                print("Found Price Label:", child.Name, "Text:", child.Text)
+                                priceText = child.Text
+                                break
+                            end
+                        end
+                    end
+                    -- Get sneaker name from SneakerImage
+                    local sneakerName = nil
+                    if frame:FindFirstChild("SneakerImage") then
+                        sneakerName = frame.SneakerImage.Name
+                        print("Found SneakerImage with Name:", sneakerName)
+                    end
+                    if sneakerName and priceText then
+                        local presetMax = getPresetMax(sneakerName)
+                        local sneakerPrice = parsePrice(priceText)
+                        print("Price parsed:", sneakerPrice, "Preset max:", presetMax)
+                        if presetMax and sneakerPrice then
+                            if sneakerPrice <= presetMax then
+                                print("[COLOR] GREEN")
+                                frame.BackgroundColor3 = Color3.fromRGB(65,255,120)
+                            else
+                                print("[COLOR] RED")
+                                frame.BackgroundColor3 = Color3.fromRGB(255,58,58)
+                            end
+                        else
+                            print("[COLOR] DEFAULT")
+                            frame.BackgroundColor3 = Color3.fromRGB(228,228,228)
+                        end
+                    else
+                        print("[MISSING] SneakerName or Price")
+                        frame.BackgroundColor3 = Color3.fromRGB(228,228,228)
+                    end
+                end
+            end
+        end
+        task.wait(0.3)
+    end
+end)
+--[[
+================================================================================
+BLOCK 5: BLACKLIST TAB (ADD/REMOVE/CLEAR, LIST, JARVIS STYLE)
+================================================================================
+]]
+panels[2]:ClearAllChildren()
+local blHeader = Instance.new("TextLabel", panels[2])
+blHeader.BackgroundTransparency = 1
+blHeader.Position = UDim2.new(0,30,0,24)
+blHeader.Size = UDim2.new(1,-60,0,38)
+blHeader.Text = "Shoe Blacklist (Autobuy/Snipe Ignore)"
+blHeader.Font = Enum.Font.GothamBlack
+blHeader.TextSize = 26
+blHeader.TextColor3 = Color3.fromRGB(19,70,220)
+blHeader.TextXAlignment = Enum.TextXAlignment.Left
+
+local addInput = Instance.new("TextBox", panels[2])
+addInput.PlaceholderText = "Type shoe name..."
+addInput.Position = UDim2.new(0,30,0,73)
+addInput.Size = UDim2.new(0.53,-15,0,36)
+addInput.Font = Enum.Font.Gotham
+addInput.TextSize = 19
+addInput.TextColor3 = Color3.fromRGB(34,135,21)
+addInput.BackgroundColor3 = Color3.fromRGB(250,255,250)
+addInput.BorderSizePixel = 0
+local aiCorn = Instance.new("UICorner", addInput); aiCorn.CornerRadius = UDim.new(0,10)
+local addBtn = Instance.new("TextButton", panels[2])
+addBtn.Position = UDim2.new(0.565,7,0,73)
+addBtn.Size = UDim2.new(0.196,-7,0,36)
+addBtn.Text = "Add"
+addBtn.Font = Enum.Font.GothamBold
+addBtn.TextSize = 19
+addBtn.TextColor3 = Color3.fromRGB(22,33,39)
+addBtn.BackgroundColor3 = Color3.fromRGB(41,255,190)
+addBtn.BorderSizePixel = 0
+local abCorn = Instance.new("UICorner", addBtn); abCorn.CornerRadius = UDim.new(0,10)
+local remBtn = Instance.new("TextButton", panels[2])
+remBtn.Position = UDim2.new(0.768,7,0,73)
+remBtn.Size = UDim2.new(0.11,-4,0,36)
+remBtn.Text = "Remove"
+remBtn.Font = Enum.Font.GothamBold
+remBtn.TextSize = 16
+remBtn.TextColor3 = Color3.fromRGB(255,255,255)
+remBtn.BackgroundColor3 = Color3.fromRGB(205,70,75)
+remBtn.BorderSizePixel = 0
+local rbCorn = Instance.new("UICorner", remBtn); rbCorn.CornerRadius = UDim.new(0,10)
+local clrBtn = Instance.new("TextButton", panels[2])
+clrBtn.Position = UDim2.new(0.884,6,0,73)
+clrBtn.Size = UDim2.new(0.094,-4,0,36)
+clrBtn.Text = "Clear"
+clrBtn.Font = Enum.Font.GothamBold
+clrBtn.TextSize = 16
+clrBtn.TextColor3 = Color3.fromRGB(255,255,255)
+clrBtn.BackgroundColor3 = Color3.fromRGB(66,66,66)
+clrBtn.BorderSizePixel = 0
+local cbCorn = Instance.new("UICorner", clrBtn); cbCorn.CornerRadius = UDim.new(0,10)
+local blList = Instance.new("TextLabel", panels[2])
+blList.Position = UDim2.new(0,32,0,122)
+blList.Size = UDim2.new(1,-64,1,-140)
+blList.BackgroundTransparency = 0
+blList.BackgroundColor3 = Color3.fromRGB(255,255,244)
+blList.Font = Enum.Font.Ubuntu
+blList.TextColor3 = Color3.fromRGB(17,70,10)
+blList.TextXAlignment = Enum.TextXAlignment.Left
+blList.TextYAlignment = Enum.TextYAlignment.Top
+blList.TextSize = 20
+blList.ClipsDescendants = true
+blList.TextWrapped = true
+blList.Text = ""
+local blcorner = Instance.new("UICorner", blList); blcorner.CornerRadius = UDim.new(0,9)
+local function refreshBlacklistLabel()
+    if #blacklist == 0 then
+        blList.Text = "Currently empty."
+    else
+        local s = ""
+        for i,v in ipairs(blacklist) do s = s .. tostring(i) .. ". " .. v .. "\n" end
+        blList.Text = s
+    end
+end
+addBtn.MouseButton1Click:Connect(function()
+    local val = addInput.Text
+    if val and val:match("%S") then
+        local found=false
+        for _,v in ipairs(blacklist)do if v:lower()==val:lower()then found=true end end
+        if not found then
+            table.insert(blacklist, val)
+            refreshBlacklistLabel()
+            announce("Blacklisted "..val)
+        end
+        addInput.Text = ""
+    end
+end)
+remBtn.MouseButton1Click:Connect(function()
+    table.remove(blacklist, #blacklist)
+    refreshBlacklistLabel()
+    announce("Removed most recent from blacklist")
+end)
+clrBtn.MouseButton1Click:Connect(function()
+    table.clear(blacklist)
+    refreshBlacklistLabel()
+    announce("Cleared blacklist")
+end)
+refreshBlacklistLabel()
+
+--[[
+================================================================================
+BLOCK 6: SEARCH TAB (LIVE SEARCH, SET MAX PRICE, JARVIS STYLE)
+================================================================================
+]]
+panels[3]:ClearAllChildren()
+local searchLabel = Instance.new("TextLabel", panels[3])
+searchLabel.BackgroundTransparency = 1
+searchLabel.Position = UDim2.new(0,32,0,24)
+searchLabel.Size = UDim2.new(1,-64,0,38)
+searchLabel.Font = Enum.Font.GothamBlack
+searchLabel.TextSize = 26
+searchLabel.TextColor3 = Color3.fromRGB(30,70,230)
+searchLabel.TextXAlignment = Enum.TextXAlignment.Left
+searchLabel.Text = "Search For A Sneaker (Live Filter):"
+local searchBox = Instance.new("TextBox", panels[3])
+searchBox.Position = UDim2.new(0,32,0,72)
+searchBox.Size = UDim2.new(0.58,-15,0,38)
+searchBox.Font = Enum.Font.Gotham
+searchBox.TextSize = 20
+searchBox.TextColor3 = Color3.fromRGB(24,80,130)
+searchBox.BackgroundColor3 = Color3.fromRGB(235,255,255)
+searchBox.PlaceholderText = "Type part of any sneaker name..."
+searchBox.BorderSizePixel = 0
+local sbCorn = Instance.new("UICorner", searchBox); sbCorn.CornerRadius = UDim.new(0,12)
+local matchLabel = Instance.new("TextLabel", panels[3])
+matchLabel.Position = UDim2.new(0.61,0,0,72)
+matchLabel.Size = UDim2.new(0.35, 0, 0, 38)
+matchLabel.BackgroundTransparency = 1
+matchLabel.Font = Enum.Font.GothamBold
+matchLabel.TextSize = 19
+matchLabel.TextColor3 = Color3.fromRGB(0,0,0)
+matchLabel.TextXAlignment = Enum.TextXAlignment.Left
+matchLabel.Text = "No match (type above)."
+local manualLabel = Instance.new("TextLabel", panels[3])
+manualLabel.Position = UDim2.new(0,32,0,122)
+manualLabel.Size = UDim2.new(1,-64,0,32)
+manualLabel.BackgroundTransparency = 1
+manualLabel.Font = Enum.Font.Code
+manualLabel.TextSize = 19
+manualLabel.TextColor3 = Color3.fromRGB(128,34,55)
+manualLabel.TextXAlignment = Enum.TextXAlignment.Left
+manualLabel.Text = "Set max buy price for this shoe:"
+local priceBox = Instance.new("TextBox", panels[3])
+priceBox.Position = UDim2.new(0,32,0,158)
+priceBox.Size = UDim2.new(0.30,0,0,36)
+priceBox.Font = Enum.Font.Gotham
+priceBox.TextSize = 19
+priceBox.TextColor3 = Color3.fromRGB(12,51,25)
+priceBox.PlaceholderText = "Set max price"
+priceBox.BackgroundColor3 = Color3.fromRGB(176,255,204)
+priceBox.BorderSizePixel = 0
+local pbCorn = Instance.new("UICorner", priceBox); pbCorn.CornerRadius = UDim.new(0,9)
+local setPriceBtn = Instance.new("TextButton", panels[3])
+setPriceBtn.Position = UDim2.new(0.32,14,0,158)
+setPriceBtn.Size = UDim2.new(0.13,0,0,36)
+setPriceBtn.Text = "Set"
+setPriceBtn.Font = Enum.Font.GothamBold
+setPriceBtn.TextSize = 18
+setPriceBtn.TextColor3 = Color3.fromRGB(12,80,36)
+setPriceBtn.BackgroundColor3 = Color3.fromRGB(68,235,130)
+setPriceBtn.BorderSizePixel = 0
+local spCorn = Instance.new("UICorner", setPriceBtn); spCorn.CornerRadius = UDim.new(0,9)
+local lastMatched = nil
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local val = searchBox.Text:lower()
+    local found = nil
+    for _,s in ipairs(presetSneakers) do
+        if s.label:lower():find(val,1,true) or s.full:lower():find(val,1,true) then
+            found = s; break
+        end
+    end
+    if found then
+        lastMatched = found
+        matchLabel.Text = "Found: "..found.label.." ($"..formatNumber(shoeMaxPrices[found.full] or found.default)..")"
+        priceBox.PlaceholderText = tostring(shoeMaxPrices[found.full] or found.default)
+        manualLabel.Text = "Set max buy price for this shoe:"
+    else
+        lastMatched = nil
+        matchLabel.Text = "No match."
+        manualLabel.Text = "Set max buy price for this shoe:"
+    end
+end)
+setPriceBtn.MouseButton1Click:Connect(function()
+    if lastMatched and tonumber(priceBox.Text) then
+        shoeMaxPrices[lastMatched.full] = math.floor(tonumber(priceBox.Text))
+        matchLabel.Text = "Found: "..lastMatched.label.." ($"..formatNumber(shoeMaxPrices[lastMatched.full])..")"
+        announce("Set "..lastMatched.label.." price to $"..formatNumber(shoeMaxPrices[lastMatched.full]))
+    end
+end)
+
+--[[
+================================================================================
+BLOCK 7: LOGS TAB WITH USERNAME FILTER (case-insensitive, partial match)
+================================================================================
+]]
+panels[4]:ClearAllChildren()
+local logsTitle = Instance.new("TextLabel", panels[4])
+logsTitle.BackgroundTransparency = 1
+logsTitle.Position = UDim2.new(0, 32, 0, 22)
+logsTitle.Size = UDim2.new(1, -64, 0, 38)
+logsTitle.Font = Enum.Font.GothamBlack
+logsTitle.TextSize = 26
+logsTitle.TextColor3 = Color3.fromRGB(65, 108, 255)
+logsTitle.TextXAlignment = Enum.TextXAlignment.Left
+logsTitle.Text = "Logs (Live Server Sales)"
+
+-- Username filter search box
+local filterBox = Instance.new("TextBox", panels[4])
+filterBox.Position = UDim2.new(0, 36, 0, 65)
+filterBox.Size = UDim2.new(0, 250, 0, 34)
+filterBox.Font = Enum.Font.Gotham
+filterBox.TextSize = 18
+filterBox.TextColor3 = Color3.fromRGB(30,70,130)
+filterBox.BackgroundColor3 = Color3.fromRGB(235,255,255)
+filterBox.PlaceholderText = "Filter by username..."
+filterBox.BorderSizePixel = 0
+local fbCorn = Instance.new("UICorner", filterBox); fbCorn.CornerRadius = UDim.new(0,10)
+filterBox.Text = game:GetService("Players").LocalPlayer.Name
+
+local serverLogsLabel = Instance.new("TextLabel", panels[4])
+serverLogsLabel.Position = UDim2.new(0, 36, 0, 114)
+serverLogsLabel.Size = UDim2.new(1, -64, 1, -135)
+serverLogsLabel.BackgroundTransparency = 0.09
+serverLogsLabel.BackgroundColor3 = Color3.fromRGB(244, 246, 255)
+serverLogsLabel.TextSize = 18
+serverLogsLabel.Font = Enum.Font.Ubuntu
+serverLogsLabel.TextColor3 = Color3.fromRGB(45,77,111)
+serverLogsLabel.TextYAlignment = Enum.TextYAlignment.Top
+serverLogsLabel.TextXAlignment = Enum.TextXAlignment.Left
+serverLogsLabel.Text = ""
+serverLogsLabel.ClipsDescendants = true
+serverLogsLabel.TextWrapped = true
+local slCorn = Instance.new("UICorner", serverLogsLabel); slCorn.CornerRadius = UDim.new(0,8)
+
+-- Live search & display logic:
+local function updateServerLogsDisplay()
+    local filter = filterBox.Text:lower()
+    local s = ""
+    if #serverSalesLog == 0 then
+        s = "No sales logged yet!"
+    else
+        for i,v in ipairs(serverSalesLog) do
+            local uname = v.user and tostring(v.user) or "(n/a)"
+            if uname:lower():find(filter,1,true) or filter == "" then
+                s = s..os.date("[%I:%M:%S %p]", v.time or os.time()).."  "
+                  ..uname.." bought "..(v.shoe or "?").." for $"..formatNumber(v.price or 0)
+                  .."\n"
+            end
+        end
+    end
+    serverLogsLabel.Text = s
+end
+
+filterBox:GetPropertyChangedSignal("Text"):Connect(updateServerLogsDisplay)
+updateServerLogsDisplay()
+--[[
+================================================================================
+BLOCK 7.5: LOG TAB "COPY TO CLIPBOARD" BUTTON
+================================================================================
+]]
+-- Place immediately after logTitle in your Log tab code for best look.
+local copyBtn = Instance.new("TextButton", panels[4])
+copyBtn.Position = UDim2.new(1, -178, 0, 26)
+copyBtn.Size = UDim2.new(0, 150, 0, 34)
+copyBtn.Text = "Copy Log to Clipboard"
+copyBtn.Font = Enum.Font.GothamBold
+copyBtn.TextColor3 = Color3.fromRGB(30,90,30)
+copyBtn.BackgroundColor3 = Color3.fromRGB(225,255,245)
+copyBtn.TextSize = 17
+copyBtn.BorderSizePixel = 0
+local cbCorn = Instance.new("UICorner", copyBtn); cbCorn.CornerRadius = UDim.new(0,12)
+copyBtn.MouseButton1Click:Connect(function()
+    if setclipboard then
+        local lines = {}
+        for i,entry in ipairs(purchaseLog) do
+            local tag = entry.sell and "[S]" or "[B]"
+            local extra = entry.sell and entry.profit and (" (+$%s profit)"):format(formatNumber(entry.profit)) or ""
+            table.insert(lines, string.format("%s %s @ $%s [%s]%s", tag, entry.name, formatNumber(entry.price), entry.timestamp, extra))
+        end
+        if #lines == 0 then table.insert(lines, "Nothing yet!") end
+        setclipboard(table.concat(lines, "\n"))
+        announce("Copied log to clipboard!")
+    else
+        announce("setclipboard not available!")
+    end
+end)
+
+--[[
+================================================================================
+BLOCK 8: STATS TAB DOUBLE BACKGROUND ("CARD") STYLE
+================================================================================
+]]
+panels[6]:ClearAllChildren()
+panels[6].BackgroundTransparency = 0.42
+panels[6].BackgroundColor3 = Color3.fromRGB(18,24,38) -- Jarvis main BG
+
+-- Create inner card matching the sales log style
+local statsCard = Instance.new("Frame")
+statsCard.Parent = panels[6]
+statsCard.BackgroundColor3 = Color3.fromRGB(222,236,252)   -- Light blue card, same as Sales Log
+statsCard.Size = UDim2.new(1, -32, 1, -32)
+statsCard.Position = UDim2.new(0,16,0,16)
+statsCard.BackgroundTransparency = 0
+local statsCorner = Instance.new("UICorner", statsCard)
+statsCorner.CornerRadius = UDim.new(0,12)
+
+local baseX, baseW = 38-16, -76+32
+local baseY = 92-16
+local yStep = 40
+
+local statsLabels = {
+    {color=Color3.fromRGB(40, 100, 180), text=function() return "Starting Cash: $"..formatNumber(sessionStartMoney) end},
+    {color=Color3.fromRGB(24, 132, 68),  text=function() return "Current Cash: $"..formatNumber(getCurrentMoney()) end},
+    {color=Color3.fromRGB(22, 150, 40),  text=function() return "Money Spent: $"..formatNumber(totalSpent) end},
+    {color=Color3.fromRGB(0, 80, 230),   text=function() return "Total Profit: $"..formatNumber(totalProfit) end},
+    {color=Color3.fromRGB(0, 90, 180),   text=function() return "Total Buys: " .. tostring(#purchaseLog) end},
+    {color=Color3.fromRGB(205, 105, 20), text=function()
+        local n = 0
+        for _, entry in ipairs(purchaseLog) do if entry.sell then n = n + 1 end end
+        return "Total Sells: " .. tostring(n)
+    end},
+    {color=Color3.fromRGB(55, 105, 140), text=function() return "Players in Game: " .. tostring(#Players:GetPlayers()) end},
+}
+
+local statObjs = {}
+for i,item in ipairs(statsLabels) do
+    local lab = Instance.new("TextLabel", statsCard)
+    lab.BackgroundTransparency = 1
+    lab.Position = UDim2.new(0, baseX, 0, baseY+(i-1)*yStep)
+    lab.Size = UDim2.new(1, baseW, 0, 32)
+    lab.Font = Enum.Font.Gotham
+    lab.TextSize = 22
+    lab.TextColor3 = item.color
+    lab.TextXAlignment = Enum.TextXAlignment.Left
+    lab.Text = item.text()
+    statObjs[i] = lab
+end
+
+task.spawn(function()
+    while true do
+        for i, item in ipairs(statsLabels) do
+            statObjs[i].Text = item.text()
+        end
+        task.wait(1)
+    end
+end)
+--[[
+================================================================================
+BLOCK 8.5: HIDE/SHOW WHOLE GUI WITH BACKTICK (`) KEY
+================================================================================
+]]
+local UIS = game:GetService("UserInputService")
+local guiVisible = true
+
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    -- Backtick/Tilde key on US QWERTY ("`" = KeyCode.Backquote)
+    if input.KeyCode == Enum.KeyCode.Backquote then
+        guiVisible = not guiVisible
+        gui.Enabled = guiVisible
+    end
+end)
+--[[
+================================================================================
+BLOCK 9: SALES LOG TAB (LIVE SERVER SALES, SHARED GLOBAL LOG, UPDATES LOGS TAB)
+================================================================================
+]]
+panels[5]:ClearAllChildren()
+local salesLogTitle = Instance.new("TextLabel", panels[5])
+salesLogTitle.BackgroundTransparency = 1
+salesLogTitle.Position = UDim2.new(0, 32, 0, 22)
+salesLogTitle.Size = UDim2.new(1, -64, 0, 38)
+salesLogTitle.Font = Enum.Font.GothamBlack
+salesLogTitle.TextSize = 26
+salesLogTitle.TextColor3 = Color3.fromRGB(0, 255, 245)
+salesLogTitle.TextXAlignment = Enum.TextXAlignment.Left
+salesLogTitle.Text = "Live Server Sales Log"
+
+local salesScroller = Instance.new("ScrollingFrame", panels[5])
+salesScroller.Position = UDim2.new(0, 32, 0, 64)
+salesScroller.Size = UDim2.new(1, -64, 1, -80)
+salesScroller.ScrollBarThickness = 13
+salesScroller.BackgroundColor3 = Color3.fromRGB(210, 230, 244)
+salesScroller.BackgroundTransparency = 0.32
+salesScroller.BorderSizePixel = 0
+local sCorner = Instance.new("UICorner", salesScroller); sCorner.CornerRadius = UDim.new(0, 13)
+local salesLogLayout = Instance.new("UIListLayout", salesScroller)
+salesLogLayout.Padding = UDim.new(0, 7)
+salesLogLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- No more local serverSalesLog!
+
+local function addSalesLogLine(player, shoe, price)
+    table.insert(serverSalesLog, 1, {player=player, shoe=shoe, price=price, timestamp=os.date("%I:%M:%S %p")})
+    while #serverSalesLog > 120 do table.remove(serverSalesLog) end
+    -- Clear/refresh Sales Log tab
+    for _,v in ipairs(salesScroller:GetChildren()) do
+        if v:IsA("TextLabel") then v:Destroy() end
+    end
+    for i,entry in ipairs(serverSalesLog) do
+        local txt = Instance.new("TextLabel", salesScroller)
+        txt.BackgroundTransparency = 1
+        txt.Size = UDim2.new(1, 0, 0, 28)
+        txt.Font = Enum.Font.Code
+        txt.TextSize = 18
+        txt.TextColor3 = Color3.fromRGB(33, 82, 245)
+        txt.TextXAlignment = Enum.TextXAlignment.Left
+        txt.Text = string.format("[%s] %s bought %s @ %s", entry.timestamp, entry.player, entry.shoe, entry.price)
+        if i > 60 then break end
+    end
+    -- *** This will update the LOGS tab too, instantly if it's open ***
+    if panels[4].Visible and typeof(refreshLogsView) == "function" then
+        refreshLogsView()
+    end
+end
+
+-- Font tag stripper
+local function stripFontTags(str)
+    return (str:gsub('<font.->(.-)</font>', "%1"))
+end
+
+local function parseSaleLine(rawMessage)
+    local msg = stripFontTags(rawMessage)
+    local buyer, shoe, price = msg:match("^(.-) has bought the (.*) for ($.*)$")
+    if buyer and shoe and price then
+        return buyer, shoe, price
+    end
+    return nil
+end
+
+-- Chat hook
+do
+    local TextChatService = game:GetService("TextChatService")
+    local ok, channel = pcall(function()
+        return TextChatService:WaitForChild("TextChannels"):WaitForChild("RBXGeneral")
+    end)
+    if ok and channel then
+        channel.MessageReceived:Connect(function(msg)
+            local buyer, shoe, price = parseSaleLine(msg.Text)
+            if buyer and shoe and price then
+                addSalesLogLine(buyer, shoe, price)
+            end
+        end)
+    end
+end
