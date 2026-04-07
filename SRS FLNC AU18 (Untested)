@@ -1,0 +1,3374 @@
+--[[
+    STERLING ENTERPRISE (V48.4 - THE MASTER TYCOON SUITE)
+    - FIXED: Bulletproof RGB/Hex color extraction for Snipe Webhook.
+    - NEW: "F8" Panic Disconnect Hotkey.
+    - NEW: Live Chat Console (Discord Auto-Patching).
+    - TOGGLE KEY: LEFT ALT
+]]
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local mouse = LocalPlayer:GetMouse()
+
+-- CLEANUP PREVIOUS INJECTIONS
+pcall(function()
+    if game:GetService("CoreGui"):FindFirstChild("SterlingEnterpriseMatrix") then game:GetService("CoreGui").SterlingEnterpriseMatrix:Destroy() end
+    if LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("SterlingEnterpriseMatrix") then LocalPlayer.PlayerGui.SterlingEnterpriseMatrix:Destroy() end
+end)
+
+--================================================================================
+-- DISCORD WEBHOOK INTEGRATION (24HR NETWORTH ONLY)
+--================================================================================
+local WEBHOOK_URL = "https://webhook.lewisakura.moe/api/webhooks/1482654097306812509/Q6yzOLohGIbN74l5KDCVqJ3bh3XU0jhIJgpd2wbzRIHgLMhY0m6rl6mX7MhyDPZNKXkP"
+
+local function sendWebhook(embedTitle, embedDescription, embedColor)
+    if WEBHOOK_URL == "" then return end
+    
+    local data = {
+        ["embeds"] = {{
+            ["title"] = embedTitle,
+            ["description"] = embedDescription,
+            ["color"] = embedColor,
+            ["footer"] = {["text"] = "Sterling Enterprise • " .. os.date("%Y-%m-%d %I:%M:%S %p")}
+        }}
+    }
+    
+    local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    if req then
+        task.spawn(function()
+            local success, response = pcall(function()
+                return req({
+                    Url = WEBHOOK_URL, -- Make sure this is still the Lewisakura proxy!
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = game:GetService("HttpService"):JSONEncode(data)
+                })
+            end)
+            
+            if success and response then
+                print("--- WEBHOOK DIAGNOSTICS ---")
+                print("Status Code:", response.StatusCode)
+                if response.StatusCode ~= 200 and response.StatusCode ~= 204 then
+                    print("Error Details:", response.Body)
+                end
+                print("---------------------------")
+            else
+                print("--- WEBHOOK CRITICAL FAIL ---")
+                print("The executor completely blocked the request: ", tostring(response))
+                print("-----------------------------")
+            end
+        end)
+    end
+end
+
+local gameInvGui = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("MainScreenGui"):WaitForChild("InventoryFrame"):WaitForChild("SneakerInventoryFrame")
+local warehouseFolder = LocalPlayer:WaitForChild("Inventory"):WaitForChild("UnsellableInventory")
+local remoteFolder = ReplicatedStorage:WaitForChild("RemoteEvents")
+local buyAppRemote = remoteFolder:WaitForChild("BuyShoesApp")
+local getAppRemote = remoteFolder:WaitForChild("GetShoesAppData")
+
+--================================================================================
+-- UTILITY FUNCTIONS (UPGRADED MATH FOR K/M/B)
+--================================================================================
+local function formatNumber(n)
+    local formatted = tostring(math.floor(tonumber(n) or 0))
+    local k
+    while true do
+        formatted, k = string.gsub(formatted, "^(-?%d+)(%d%d%d)", '%1,%2')
+        if k == 0 then break end
+    end
+    return formatted
+end
+
+local function cleanInput(str)
+    local s = tostring(str)
+    s = string.gsub(s, "[$,]", "")
+    local numStr, suffix = string.match(s, "([%d%.]+)([KkMmBb]?)")
+    if not numStr then return 0 end
+    local val = tonumber(numStr) or 0
+    suffix = string.upper(suffix)
+    if suffix == "K" then val = val * 1000
+    elseif suffix == "M" then val = val * 1000000
+    elseif suffix == "B" then val = val * 1000000000
+    end
+    return val
+end
+--================================================================================
+-- UNIVERSAL IMAGE & UI UTILITIES (FOR ALL TABS)
+--================================================================================
+local indexFrame = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("MainScreenGui"):WaitForChild("IndexFrame"):WaitForChild("ScrollingFrame")
+
+local function fuzzyFindFrame(folder, searchName)
+    if not folder then return nil end
+    local cleanSearch = string.match(searchName, "^%s*(.-)%s*$")
+    local exact = folder:FindFirstChild(cleanSearch)
+    if exact then return exact end
+    
+    local bestMatch = nil
+    local highestScore = 0
+    local searchLower = cleanSearch:lower()
+    
+    for _, child in ipairs(folder:GetChildren()) do
+        local childLower = child.Name:lower()
+        if string.find(searchLower, childLower, 1, true) or string.find(childLower, searchLower, 1, true) then return child end
+        
+        local score = 0
+        for word in string.gmatch(searchLower, "%S+") do
+            if string.find(childLower, word, 1, true) then score = score + 1 end
+        end
+        if score > highestScore and score >= 2 then
+            highestScore = score
+            bestMatch = child
+        end
+    end
+    return bestMatch
+end
+
+local function getInGameShoeImage(shoeName)
+    local cleanShoeName = string.match(shoeName, "^%s*(.-)%s*$")
+    
+    local shoeFrame = fuzzyFindFrame(indexFrame, cleanShoeName)
+    if shoeFrame then
+        if shoeFrame:IsA("ImageLabel") or shoeFrame:IsA("ImageButton") then return shoeFrame.Image end
+        for _, desc in ipairs(shoeFrame:GetDescendants()) do
+            if desc.Name ~= "IndexStar" and (desc:IsA("ImageLabel") or desc:IsA("ImageButton")) then return desc.Image end
+        end
+    end
+    
+    local invFrame = fuzzyFindFrame(gameInvGui, cleanShoeName)
+    if invFrame then 
+        if invFrame:IsA("ImageLabel") or invFrame:IsA("ImageButton") then return invFrame.Image end
+        for _, desc in ipairs(invFrame:GetDescendants()) do
+            if desc.Name ~= "IndexStar" and (desc:IsA("ImageLabel") or desc:IsA("ImageButton")) then return desc.Image end
+        end
+    end
+    
+    return ""
+end
+--================================================================================
+-- BLOCK 0: FULL PRESET DATABASE 
+--================================================================================
+local presetSneakers = {
+--==== SPECIAL: ULTRA-RARE / $70M+ ====--
+{label="Mike Mercurial Superfly 9 Pink", full="Mike Mercurial Superfly 9 Pink", default=1000000000},
+{label="Adios Predator 19+ Pogba", full="Adios Predator 19+ Pogba", default=808000000},
+{label="Lumberland 6-Inch Boot SpongeBro Blue", full="Lumberland 6-Inch Boot SpongeBro Blue", default=800000000},
+{label="Mike Dunk Low Gold", full="Mike Dunk Low Gold", default=700000000},
+{label="Zeezy Foam Runner Gold", full="Zeezy Foam Runner Gold", default=700000000},
+{label="Golden Boot", full="Golden Boot", default=700000000},
+{label="Super x Mike SB Dunk Low 94 White", full="Super x Mike SB Dunk Low 94 White", default=320000000},
+{label="Tralalelo Sneakers", full="Tralalelo Sneakers", default=210000000},
+{label="Adios Performance Predator", full="Adios Performance Predator", default=70000000},
+--==== GROCS ====--
+{label="Gold Grocs", full="Gold Grocs", default=225000000},
+{label="KSI Grocs", full="KSI Grocs", default=50000000},
+{label="Cinnamon Toast Crunch Grocs", full="Cinnamon Toast Crunch Grocs", default=38800000},
+{label="Carrot Grocs", full="Carrot Grocs", default=14200000},
+{label="Carrots Grocs", full="Carrots Grocs", default=12880000},
+{label="Shrek Grocs", full="Shrek Grocs", default=6100000},
+{label="Mater Grocs", full="Mater Grocs", default=585000},
+{label="Lightning McQueen Grocs", full="Lightning McQueen Grocs", default=500000},
+{label="Toy Story Grocs", full="Toy Story Grocs", default=140000},
+--==== MIKE DUNK LOW & HIGH ====--
+{label="Mike Dunk Low Panda-Monium Multi Color", full="Mike Dunk Low Panda-Monium Multi Color", default=60000000},
+{label="Mike Dunk High Panda", full="Mike Dunk High Panda", default=23450000},
+{label="Mike Dunk Low Silver Blue", full="Mike Dunk Low Silver Blue", default=16500000},
+{label="Mike Dunk Low Ceramic", full="Mike Dunk Low Ceramic", default=10800000},
+{label="Mike Dunk Low Cacao and Pink", full="Mike Dunk Low Cacao and Pink", default=9880000},
+{label="Mike Dunk LA Baltic Blue", full="Mike Dunk LA Baltic Blue", default=9800000},
+{label="Mike Dunk Low Panda-Monium Green Curry", full="Mike Dunk Low Panda-Monium Green Curry", default=1200000},
+{label="Mike Dunk Low Setsubun", full="Mike Dunk Low Setsubun", default=100000},
+--==== MIKE SB DUNK LOW ====--
+{label="Mike SB Dunk Low Yellow Lobster", full="Mike SB Dunk Low Yellow Lobster", default=454000000},
+{label="Mike SB Dunk Low There Skateboards", full="Mike SB Dunk Low There Skateboards", default=58800000},
+{label="Mike SB Dunk Low The Wizard of Oz", full="Mike SB Dunk Low The Wizard of Oz", default=50000000},
+{label="Mike SB Dunk Low Super Cammellzee", full="Mike SB Dunk Low Super Cammellzee", default=38800000},
+{label="Mike SB Dunk Low Sunblush Futura", full="Mike SB Dunk Low Sunblush Futura", default=37500000},
+{label="Mike SB Dunk Low Riot Skateshop", full="Mike SB Dunk Low Riot Skateshop", default=28800000},
+{label="Mike SB Dunk Low Red Lobster", full="Mike SB Dunk Low Red Lobster", default=25800000},
+{label="Mike SB Dunk Low Bronx", full="Mike SB Dunk Low Bronx", default=23000000},
+{label="Mike SB Dunk Low Crenshaw", full="Mike SB Dunk Low Crenshaw", default=21800000},
+{label="Mike SB Dunk Low Pale Ivory", full="Mike SB Dunk Low Pale Ivory", default=17200000},
+{label="Mike SB Dunk Low Sesame and Pear", full="Mike SB Dunk Low Sesame and Pear", default=17100000},
+{label="Mike SB Dunk Low Cactus Jack", full="Mike SB Dunk Low Cactus Jack", default=16850000},
+{label="Mike SB Dunk Low Hayley Wilson", full="Mike SB Dunk Low Hayley Wilson", default=15800000},
+{label="Mike SB Dunk Low Verdy Visty", full="Mike SB Dunk Low Verdy Visty", default=14800000},
+{label="Mike SB Dunk Low White and Black", full="Mike SB Dunk Low White and Black", default=13800000},
+{label="Mike SB Dunk Low Black and Aluminium", full="Mike SB Dunk Low Black and Aluminium", default=10800000},
+{label="Mike SB Dunk Low Black and Smoke Grey", full="Mike SB Dunk Low Black and Smoke Grey", default=10800000},
+{label="Mike SB Dunk Low Burnt Sunrise", full="Mike SB Dunk Low Burnt Sunrise", default=10000000},
+{label="Mike SB Dunk Low Fir and Fire Red", full="Mike SB Dunk Low Fir and Fire Red", default=10000000},
+{label="Mike SB Dunk Low Gold and Dark Red", full="Mike SB Dunk Low Gold and Dark Red", default=10000000},
+{label="Mike SB Dunk Low Pigeon", full="Mike SB Dunk Low Pigeon", default=10000000},
+{label="Mike SB Dunk Low Blossom", full="Mike SB Dunk Low Blossom", default=9800000},
+{label="Mike SB Dunk Low Bubbles", full="Mike SB Dunk Low Bubbles", default=9800000},
+{label="Mike SB Dunk Low Buttercup", full="Mike SB Dunk Low Buttercup", default=9800000},
+{label="Mike SB Dunk Low Black and White", full="Mike SB Dunk Low Black and White", default=9350000},
+{label="Mike SB Dunk Low Light Carbon Monarch", full="Mike SB Dunk Low Light Carbon Monarch", default=9000000},
+{label="Mike SB Dunk Low Jaritos", full="Mike SB Dunk Low Jaritos", default=6600000},
+{label="Mike SB Dunk Low StrangeLove", full="Mike SB Dunk Low StrangeLove", default=6180000},
+{label="Mike SB Dunk Low Sandy Bodecker", full="Mike SB Dunk Low Sandy Bodecker", default=3200000},
+{label="Mike SB Dunk Low Blue Lobster", full="Mike SB Dunk Low Blue Lobster", default=1100000},
+{label="Mike SB Dunk Low Blue Trevor Lobster", full="Mike SB Dunk Low Blue Trevor Lobster", default=1100000},
+{label="Mike SB Dunk Low Why So Sad", full="Mike SB Dunk Low Why So Sad", default=1100000},
+{label="Mike SB Dunk Low London", full="Mike SB Dunk Low London", default=1000000},
+{label="Mike SB Dunk Low Chunky Dunky", full="Mike SB Dunk Low Chunky Dunky", default=900000},
+{label="Mike SB Dunk Low Day of the Dead", full="Mike SB Dunk Low Day of the Dead", default=80000},
+--==== MIKE KOBE & FOAMPOSITE ====--
+{label="Mike Kobe 6 Kay Yow Think Pink", full="Mike Kobe 6 Kay Yow Think Pink", default=60000000},
+{label="Mike Foamposite One Metallic Red", full="Mike Foamposite One Metallic Red", default=30000000},
+{label="Mike Foamposite One International Blue", full="Mike Foamposite One International Blue", default=24800000},
+{label="Mike Foamposite One Stranger Things", full="Mike Foamposite One Stranger Things", default=14500000},
+{label="Mike Foamposite One Black Volt", full="Mike Foamposite One Black Volt", default=3500000},
+{label="Mike Foamposite One Cough Drop", full="Mike Foamposite One Cough Drop", default=1880000},
+{label="Mike Kobe 8 Protro What The", full="Mike Kobe 8 Protro What The", default=1000000},
+{label="Mike Kobe 6 Grinch", full="Mike Kobe 6 Grinch", default=280000},
+{label="Mike Kobe 6 Reverse Grinch", full="Mike Kobe 6 Reverse Grinch", default=280000},
+--==== MIKE AIR FORCE 1 ====--
+{label="Mike Air Force 1 Pink Foam", full="Mike Air Force 1 Pink Foam", default=48000000},
+{label="Mike Air Force 1 Halloween", full="Mike Air Force 1 Halloween", default=42800000},
+{label="Mike Air Force 1 Lil Yachty", full="Mike Air Force 1 Lil Yachty", default=35000000},
+{label="Mike Air Force 1 Kobe", full="Mike Air Force 1 Kobe", default=27800000},
+{label="Mike Air Force 1 Kobe x Barcelona Violet", full="Mike Air Force 1 Kobe x Barcelona Violet", default=25800000},
+{label="Mike Air Force 1 Anthracite", full="Mike Air Force 1 Anthracite", default=18750000},
+{label="Mike Air Force 1 Varsity Red-White", full="Mike Air Force 1 Varsity Red-White", default=17850000},
+{label="Mike Air Force 1 x Stash", full="Mike Air Force 1 x Stash", default=16000000},
+{label="Mike Air Force 1 Syna", full="Mike Air Force 1 Syna", default=15000000},
+{label="Mike Air Force 1 White Halloween", full="Mike Air Force 1 White Halloween", default=11850000},
+{label="Mike Air Force 1 Tiffany", full="Mike Air Force 1 Tiffany", default=11550000},
+{label="Mike Air Force 1 Linen", full="Mike Air Force 1 Linen", default=10000000},
+{label="AMBUSH Air Force 1 Black", full="AMBUSH Air Force 1 Black", default=1000000},
+{label="Mike Air Force 1 Trevor Scott Utopia", full="Mike Air Force 1 Trevor Scott Utopia", default=120000},
+{label="Mike Air Force 1 Skeleton", full="Mike Air Force 1 Skeleton", default=110000},
+--==== ADIOS ZEEZY & AIR ZEEZY 2 ====--
+{label="Adios Zeezy Boost 350 Zebra", full="Adios Zeezy Boost 350 Zebra", default=75000000},
+{label="Mike Air Zeezy 2 Pure Platinum", full="Mike Air Zeezy 2 Pure Platinum", default=57800000},
+{label="Adios Zeezy Boost 350 Bone", full="Adios Zeezy Boost 350 Bone", default=12890000},
+{label="Mike Air Zeezy 2 Solar Red", full="Mike Air Zeezy 2 Solar Red", default=8000000},
+{label="Adios Zeezy Boost 350 Beluga", full="Adios Zeezy Boost 350 Beluga", default=85000},
+--==== AIR BOGDAN 1 HIGH ====--
+{label="Air Bogdan 1 High On-White Euro", full="Air Bogdan 1 High On-White Euro", default=830000000},
+{label="Air Bogdan 1 High On-White Canary", full="Air Bogdan 1 High On-White Canary", default=685000000},
+{label="Air Bogdan 1 High On-White Chicago", full="Air Bogdan 1 High On-White Chicago", default=72000000},
+{label="Air Bogdan 1 High On-White UNC", full="Air Bogdan 1 High On-White UNC", default=72000000},
+{label="Air Bogdan 1 High Midnight Navy", full="Air Bogdan 1 High Midnight Navy", default=38900000},
+{label="Air Bogdan 1 High Black Toe Reimagined", full="Air Bogdan 1 High Black Toe Reimagined", default=25000000},
+{label="Air Bogdan 1 High Baroque Brown", full="Air Bogdan 1 High Baroque Brown", default=20000000},
+{label="Air Bogdan 1 High J Balvin", full="Air Bogdan 1 High J Balvin", default=19000000},
+{label="Air Bogdan 1 High Black And Gold", full="Air Bogdan 1 High Black And Gold", default=17000000},
+{label="Air Bogdan 1 High Satin Shadow", full="Air Bogdan 1 High Satin Shadow", default=15800000},
+{label="Air Bogdan 1 High Cool Grey", full="Air Bogdan 1 High Cool Grey", default=12500000},
+{label="Air Bogdan 1 High Trevor Mocha", full="Air Bogdan 1 High Trevor Mocha", default=10880000},
+{label="Air Bogdan 1 High Psychic Blue", full="Air Bogdan 1 High Psychic Blue", default=10000000},
+{label="Air Bogdan 1 High Spiderverse", full="Air Bogdan 1 High Spiderverse", default=2400000},
+{label="Air Bogdan 1 High Trevor Fragment", full="Air Bogdan 1 High Trevor Fragment", default=600000},
+{label="Air Bogdan 1 High Bior", full="Air Bogdan 1 High Bior", default=500000},
+--==== AIR BOGDAN 1 LOW ====--
+{label="Air Bogdan 1 Trevor Canary", full="Air Bogdan 1 Trevor Canary", default=200000000},
+{label="Air Bogdan 1 Low Chicago", full="Air Bogdan 1 Low Chicago", default=47200000},
+{label="Air Bogdan 1 Low Medium Olive", full="Air Bogdan 1 Low Medium Olive", default=35000000},
+{label="Air Bogdan 1 Low PSG", full="Air Bogdan 1 Low PSG", default=30000000},
+{label="Air Bogdan 1 Low Obsidian", full="Air Bogdan 1 Low Obsidian", default=20800000},
+{label="Air Bogdan 1 Low Trevor Olive", full="Air Bogdan 1 Low Trevor Olive", default=18950000},
+{label="Air Bogdan 1 Low Trevor Shy Pink", full="Air Bogdan 1 Low Trevor Shy Pink", default=17500000},
+{label="Air Bogdan 1 Low Trevor Mocha", full="Air Bogdan 1 Low Trevor Mocha", default=17200000},
+{label="Air Bogdan 1 Low Year of the Snake", full="Air Bogdan 1 Low Year of the Snake", default=15800000},
+{label="Air Bogdan 1 Low Game Royal", full="Air Bogdan 1 Low Game Royal", default=15700000},
+{label="Air Bogdan 1 Low Oxydized Green", full="Air Bogdan 1 Low Oxydized Green", default=10700000},
+{label="Air Bogdan 1 Low Gym Red & Midnight Navy", full="Air Bogdan 1 Low Gym Red & Midnight Navy", default=9870000},
+{label="Air Bogdan 1 Chicago", full="Air Bogdan 1 Chicago", default=9800000},
+{label="Air Bogdan 1 Low Trevor Phantom", full="Air Bogdan 1 Low Trevor Phantom", default=5800000},
+{label="Air Bogdan 1 Low Trevor Velvet Brown", full="Air Bogdan 1 Low Trevor Velvet Brown", default=1200000},
+{label="Air Bogdan 1 Low Trevor Fragment Sail", full="Air Bogdan 1 Low Trevor Fragment Sail", default=900000},
+{label="Air Bogdan 1 Low Trevor Reverse Mocha", full="Air Bogdan 1 Low Trevor Reverse Mocha", default=400000},
+{label="Air Bogdan 1 Low Bior", full="Air Bogdan 1 Low Bior", default=400000},
+--==== AIR BOGDAN 3 ====--
+{label="Air Bogdan 3 Pure Money", full="Air Bogdan 3 Pure Money", default=165000000},
+{label="Air Bogdan 3 Treat Yourself", full="Air Bogdan 3 Treat Yourself", default=42000000},
+{label="Air Bogdan 3 Wings", full="Air Bogdan 3 Wings", default=31800000},
+{label="Air Bogdan 3 Black Cement", full="Air Bogdan 3 Black Cement", default=18850000},
+{label="Air Bogdan 3 Cement Grey", full="Air Bogdan 3 Cement Grey", default=16800150},
+{label="Air Bogdan 3 Lucky Shorts", full="Air Bogdan 3 Lucky Shorts", default=15800000},
+{label="Air Bogdan 3 Rare Air", full="Air Bogdan 3 Rare Air", default=14850000},
+{label="Air Bogdan 3 Elvi's Indigo", full="Air Bogdan 3 Elvi's Indigo", default=11850000},
+{label="Air Bogdan 3 White Cement", full="Air Bogdan 3 White Cement", default=7880000},
+{label="Air Bogdan 3 A Ma Maniere", full="Air Bogdan 3 A Ma Maniere", default=4750000},
+{label="Air Bogdan 3 Fire Red", full="Air Bogdan 3 Fire Red", default=280000},
+--==== AIR BOGDAN 4 ====--
+{label="Air Bogdan 4 Michigan PE", full="Air Bogdan 4 Michigan PE", default=265000000},
+{label="Air Bogdan 4 Trevor Scott Purple", full="Air Bogdan 4 Trevor Scott Purple", default=265000000},
+{label="Air Bogdan 4 On-White Sail", full="Air Bogdan 4 On-White Sail", default=220000000},
+{label="Air Bogdan 4 Orchid", full="Air Bogdan 4 Orchid", default=64800000},
+{label="Air Bogdan 4 Black Cat", full="Air Bogdan 4 Black Cat", default=47800000},
+{label="Air Bogdan 4 Nigel", full="Air Bogdan 4 Nigel", default=45000000},
+{label="Air Bogdan 4 White Cement", full="Air Bogdan 4 White Cement", default=37800000},
+{label="Air Bogdan 4 A Ma Maniere", full="Air Bogdan 4 A Ma Maniere", default=30800000},
+{label="Air Bogdan 4 Wet Cement", full="Air Bogdan 4 Wet Cement", default=28000000},
+{label="Air Bogdan 4 Fear", full="Air Bogdan 4 Fear", default=27350000},
+{label="Air Bogdan 4 Tough Red", full="Air Bogdan 4 Tough Red", default=24800000},
+{label="Air Bogdan 4 Imperial Purple", full="Air Bogdan 4 Imperial Purple", default=23800000},
+{label="Air Bogdan 4 White Thunder", full="Air Bogdan 4 White Thunder", default=19850000},
+{label="Air Bogdan 4 Flight Club", full="Air Bogdan 4 Flight Club", default=16800000},
+{label="Air Bogdan 4 SB Pine Green", full="Air Bogdan 4 SB Pine Green", default=7800000},
+{label="Air Bogdan 4 Emenem Carhartt", full="Air Bogdan 4 Emenem Carhartt", default=6800000},
+{label="Air Bogdan 4 Metallic Red", full="Air Bogdan 4 Metallic Red", default=2800000},
+{label="Air Bogdan 4 UNC", full="Air Bogdan 4 UNC", default=2750000},
+{label="Air Bogdan 4 Trevor Scott", full="Air Bogdan 4 Trevor Scott", default=2650000},
+{label="Air Bogdan 4 Kaws", full="Air Bogdan 4 Kaws", default=1100000},
+{label="Air Bogdan 4 PSG", full="Air Bogdan 4 PSG", default=985000},
+{label="Air Bogdan 4 SB Navy", full="Air Bogdan 4 SB Navy", default=800000},
+{label="Air Bogdan 4 Retro Lightning", full="Air Bogdan 4 Retro Lightning", default=380000},
+{label="Air Bogdan 4 Military Blue", full="Air Bogdan 4 Military Blue", default=150000},
+--==== AIR BOGDAN 5 ====--
+{label="Air Bogdan 5 DJ Khalid Crimson Bliss", full="Air Bogdan 5 DJ Khalid Crimson Bliss", default=73500000},
+{label="Air Bogdan 5 Varsity Maize", full="Air Bogdan 5 Varsity Maize", default=37800000},
+{label="Air Bogdan 5 Fire Red", full="Air Bogdan 5 Fire Red", default=27350000},
+{label="Air Bogdan 5 Wolf Grey", full="Air Bogdan 5 Wolf Grey", default=24300000},
+{label="Air Bogdan 5 Awake NY Black", full="Air Bogdan 5 Awake NY Black", default=1280000},
+{label="Air Bogdan 5 Awake NY Pink", full="Air Bogdan 5 Awake NY Pink", default=1280000},
+{label="Air Bogdan 5 UNC", full="Air Bogdan 5 UNC", default=980000},
+--==== AIR BOGDAN 6 ====--
+{label="Air Bogdan 6 Reverse Oreo", full="Air Bogdan 6 Reverse Oreo", default=24880000},
+{label="Air Bogdan 6 Pearl", full="Air Bogdan 6 Pearl", default=23100000},
+{label="Air Bogdan 6 Infrared Salesman", full="Air Bogdan 6 Infrared Salesman", default=21900000},
+{label="Air Bogdan 6 Olympic", full="Air Bogdan 6 Olympic", default=18800000},
+--==== AIR BOGDAN 11 ====--
+{label="Air Bogdan 11 Pearl", full="Air Bogdan 11 Pearl", default=301800000},
+{label="Air Bogdan 11 Gamma Blue", full="Air Bogdan 11 Gamma Blue", default=60000000},
+{label="Air Bogdan 11 Legend Blue", full="Air Bogdan 11 Legend Blue", default=28800000},
+{label="Air Bogdan 11 Low Diffused Blue", full="Air Bogdan 11 Low Diffused Blue", default=17800000},
+{label="Air Bogdan 11 Cool Grey", full="Air Bogdan 11 Cool Grey", default=5800000},
+{label="Air Bogdan 11 Cherry", full="Air Bogdan 11 Cherry", default=5000000},
+{label="Air Bogdan 11 Concord", full="Air Bogdan 11 Concord", default=88000},
+--==== BOGDAN JUMPMAN JACK ====--
+{label="Bogdan Jumpman Jack Trevor University Red", full="Bogdan Jumpman Jack Trevor University Red", default=51000000},
+{label="Bogdan Jumpman Jack Trevor Mocha", full="Bogdan Jumpman Jack Trevor Mocha", default=1100000},
+--==== YUTTON / ON-WHITE / LUXURY ====--
+{label="Ivie Yuitton by Tyler, the Maker Trainer Multicolor", full="Ivie Yuitton by Tyler, the Maker Trainer Multicolor", default=160000000},
+{label="On-White Dunk Low Lot 01 of 50", full="On-White Dunk Low Lot 01 of 50", default=145000000},
+{label="On-White Air Force 1 ComplexCon Exclusive", full="On-White Air Force 1 ComplexCon Exclusive", default=9850000},
+{label="Ivie Yuitton Air Force 1 Monogram Damier", full="Ivie Yuitton Air Force 1 Monogram Damier", default=7670000},
+{label="Ivie Yuitton by Tyler, the Maker Trainer Beige", full="Ivie Yuitton by Tyler, the Maker Trainer Beige", default=2000000},
+{label="Ivie Yuitton IY Trainer White Black", full="Ivie Yuitton IY Trainer White Black", default=1880000},
+{label="Ivie Yuitton Lumberland 6-Inch Boot Wheat", full="Ivie Yuitton Lumberland 6-Inch Boot Wheat", default=1800000},
+{label="On-White Air Force 1 Black", full="On-White Air Force 1 Black", default=370000},
+{label="On-White Dunk Low Lot 50 of 50", full="On-White Dunk Low Lot 50 of 50", default=280000},
+--==== MISCELLANEOUS ====--
+{label="Mike Air Nag", full="Mike Air Nag", default=45000000},
+{label="Kanye East Batesta", full="Kanye East Batesta", default=31800000},
+{label="Elf Shoes", full="Elf Shoes", default=23800000},
+{label="Mike Wu-Tang Clan Dunk High", full="Mike Wu-Tang Clan Dunk High", default=19950000},
+{label="Skibidi Sneakers", full="Skibidi Sneakers", default=14600000},
+{label="Big Red Boots", full="Big Red Boots", default=5760000},
+{label="Gocci Flip Flop", full="Gocci Flip Flop", default=1300000},
+{label="EGG Mini Boot Goose", full="EGG Mini Boot Goose", default=1000000},
+{label="Mike Mercurial Superfly 9 Lemonade", full="Mike Mercurial Superfly 9 Lemonade", default=1000000},
+{label="Big Yellow Boots", full="Big Yellow Boots", default=490000},
+--==== AIR MAX & VOMERO & ADIOS ====--
+{label="Air Max Plus FC Barcelona", full="Air Max Plus FC Barcelona", default=620000000},
+{label="Mike Vomero 5 Metallic Silver", full="Mike Vomero 5 Metallic Silver", default=53800000},
+{label="Mike Air Max 1 Anniversary Red", full="Mike Air Max 1 Anniversary Red", default=38000000},
+{label="Mike Air Max 1 Stranger Things", full="Mike Air Max 1 Stranger Things", default=30000000},
+{label="Air Max Plus Black Tea", full="Air Max Plus Black Tea", default=18950000},
+{label="Mike Air Max 1/97 Sean Wotherspoon", full="Mike Air Max 1/97 Sean Wotherspoon", default=14550000},
+{label="Mike Vomero 5 Bright Crimson", full="Mike Vomero 5 Bright Crimson", default=10850000},
+{label="Mike Air Max 1 Cosmic Clay", full="Mike Air Max 1 Cosmic Clay", default=9800000},
+{label="Adios Predator 19+ Blue", full="Adios Predator 19+ Blue", default=4850000},
+{label="Adios Samba White Core Burgundy", full="Adios Samba White Core Burgundy", default=4800000},
+{label="Mike Air Max Trevor Scott Baroque Brown", full="Mike Air Max Trevor Scott Baroque Brown", default=850000},
+{label="Air Max Plus One Block Down Blue", full="Air Max Plus One Block Down Blue", default=450000},
+{label="Air Max Plus Baltic Blue", full="Air Max Plus Baltic Blue", default=450000}
+}
+
+local shoeMaxPrices = {}
+for _, s in ipairs(presetSneakers) do
+    shoeMaxPrices[s.full] = s.default
+end
+
+--================================================================================
+-- NEW: AUTOSAVE ENGINE & CACHE
+--================================================================================
+local saveFileName = "Sterling_CustomPrices.txt"
+local marketPrices = {}
+local priceTrends = {} 
+local serverPriceHistory = {} 
+
+local function SavePrices()
+    if writefile then
+        pcall(function()
+            local encoded = HttpService:JSONEncode(shoeMaxPrices)
+            writefile(saveFileName, encoded)
+        end)
+    end
+end
+
+local function LoadPrices()
+    if isfile and readfile and isfile(saveFileName) then
+        local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(saveFileName)) end)
+        if success and type(decoded) == "table" then
+            for shoeName, savedPrice in pairs(decoded) do
+                shoeMaxPrices[shoeName] = savedPrice
+                local found = false
+                for _, p in ipairs(presetSneakers) do
+                    if p.full == shoeName then found = true break end
+                end
+                if not found then
+                    table.insert(presetSneakers, 1, {label=shoeName, full=shoeName, default=savedPrice})
+                end
+            end
+        end
+    end
+end
+LoadPrices()
+
+local function fetchMarketData()
+    local success, stockPrices = pcall(function() return ReplicatedStorage.RemoteEvents.GetStockYPrices:InvokeServer() end)
+    if success and type(stockPrices) == "table" then
+        for name, price in pairs(stockPrices) do
+            if marketPrices[name] then
+                if price > marketPrices[name] then priceTrends[name] = "UP"
+                elseif price < marketPrices[name] then priceTrends[name] = "DOWN"
+                else priceTrends[name] = "STABLE" end
+            end
+            marketPrices[name] = price
+        end
+    end
+end
+fetchMarketData()
+
+task.spawn(function()
+    while task.wait(60) do
+        fetchMarketData()
+        if _G.JarvisUpdateLists then _G.JarvisUpdateLists() end
+    end
+end)
+
+--================================================================================
+-- UI CORE SETUP & MATRIX RAIN (SMOOTH EQUATION EDITION - FIXED)
+--================================================================================
+local RED = Color3.fromRGB(255, 60, 60)
+local GREEN = Color3.fromRGB(0, 255, 70)
+local GRAY = Color3.fromRGB(44, 44, 44)
+local YELLOW = Color3.fromRGB(200, 200, 0)
+local BLUE = Color3.fromRGB(0, 180, 255)
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "SterlingEnterpriseMatrix"
+gui.IgnoreGuiInset = true
+gui.ResetOnSpawn = false
+-- FIX: Forces the UI to respect layer numbering properly
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling 
+
+pcall(function() gui.Parent = game:GetService("CoreGui") end)
+if not gui.Parent then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local main = Instance.new("Frame")
+main.Name = "MainFrame"
+main.Parent = gui
+main.Size = UDim2.new(0, 1040, 0, 850)
+main.Position = UDim2.new(0.5, -520, 0.5, -425) 
+main.BackgroundColor3 = Color3.fromRGB(0, 5, 0)
+main.BorderSizePixel = 0
+main.Active = true
+main.Draggable = true
+main.ZIndex = 1
+
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Parent = main
+uiStroke.Color = GREEN
+uiStroke.Thickness = 3
+
+local matrixBG = Instance.new("Frame")
+matrixBG.Name = "MatrixBackground"
+matrixBG.Parent = main
+matrixBG.Size = UDim2.new(1, 0, 1, 0)
+matrixBG.BackgroundTransparency = 1
+matrixBG.ClipsDescendants = true
+-- FIX: Bumped ZIndex up so it renders on TOP of the dark green background
+matrixBG.ZIndex = 2 
+
+local equations = {
+    "E=mc^2", "a^2+b^2=c^2", "y=mx+b", "F=ma", "A=PI*r^2",
+    "dx/dt=v", "V=IR", "P=I^2*R", "i^2=-1", "x=-b/2a",
+    "10100110", "01101001", "11010100", "e^(i*PI)=-1",
+    "KE=1/2mv^2", "W=F*d", "p=m*v", "F=G(m1m2)/r^2",
+    "d/dx(e^x)=e^x", "sin^2+cos^2=1", "a^n+b^n=c^n"
+}
+
+task.spawn(function()
+    while task.wait(0.12) do
+        if main.Visible then
+            local eq = equations[math.random(1, #equations)]
+            local fontSize = math.random(16, 22)
+            
+            local col = Instance.new("TextLabel")
+            col.Parent = matrixBG
+            -- FIX: Sizes the box perfectly to the equation so the tail fades exactly right
+            col.Size = UDim2.new(0, 30, 0, #eq * (fontSize * 0.9))
+            -- FIX: Bulletproof random math that won't break in executors
+            col.Position = UDim2.new(math.random(1, 1000)/1000, 0, -0.4, 0)
+            col.BackgroundTransparency = 1
+            col.TextColor3 = GREEN
+            col.Font = Enum.Font.Code
+            col.TextSize = fontSize
+            col.ZIndex = 2
+            col.TextYAlignment = Enum.TextYAlignment.Bottom
+            col.TextXAlignment = Enum.TextXAlignment.Center
+            
+            local vertText = ""
+            for i = 1, #eq do
+                vertText = vertText .. string.sub(eq, i, i) .. "\n"
+            end
+            col.Text = vertText
+            
+            -- Perfect Fading Tail
+            local grad = Instance.new("UIGradient", col)
+            grad.Rotation = 90
+            grad.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),      -- Top of text is totally invisible
+                NumberSequenceKeypoint.new(0.5, 0.6),  -- Middle fades in
+                NumberSequenceKeypoint.new(0.8, 0.1),
+                NumberSequenceKeypoint.new(1, 0)       -- Bottom letter is bright and solid
+            })
+            
+            local dropSpeed = math.random(4, 9)
+            local tw = TweenService:Create(col, TweenInfo.new(dropSpeed, Enum.EasingStyle.Linear), {Position = UDim2.new(col.Position.X.Scale, 0, 1.2, 0)})
+            tw:Play()
+            tw.Completed:Connect(function() col:Destroy() end)
+        end
+    end
+end)
+
+local closeBtn = Instance.new("TextButton", main)
+closeBtn.Size = UDim2.new(0, 45, 0, 45)
+closeBtn.Position = UDim2.new(1, -55, 0, 10)
+closeBtn.Text = "X"
+closeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+closeBtn.TextColor3 = Color3.new(1, 1, 1)
+closeBtn.Font = Enum.Font.Code
+closeBtn.TextSize = 25
+closeBtn.ZIndex = 10
+closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
+
+local minBtn = Instance.new("TextButton", main)
+minBtn.Size = UDim2.new(0, 45, 0, 45)
+minBtn.Position = UDim2.new(1, -110, 0, 10)
+minBtn.Text = "_"
+minBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+minBtn.TextColor3 = Color3.new(1, 1, 1)
+minBtn.Font = Enum.Font.Code
+minBtn.TextSize = 25
+minBtn.ZIndex = 10
+local isMinimized = false
+minBtn.MouseButton1Click:Connect(function()
+    isMinimized = not isMinimized
+    main:TweenSize(isMinimized and UDim2.new(0, 1040, 0, 65) or UDim2.new(0, 1040, 0, 850), "Out", "Quad", 0.3, true)
+end)
+
+UIS.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Enum.KeyCode.LeftAlt then main.Visible = not main.Visible end
+end)
+--================================================================================
+-- NEW FEATURE: DUAL-ROW TAB NAVIGATION 
+--================================================================================
+local panels = {}
+local bottomTabButtons = {}
+local topTabButtons = {}
+
+local bottomTabNames = {"Autobuy", "Search", "Monitor", "Scanner", "Networth", "Inventory", "Bad Profits", "Show Duplicates"}
+local topTabNames = {"Live Feed", "App Sniper", "Low Targets"}
+
+local function switchTab(tabName, isTop)
+    for _, v in pairs(panels) do v.Visible = false end
+    for _, btn in pairs(bottomTabButtons) do btn.BackgroundColor3 = Color3.fromRGB(0, 25, 0) end
+    for k, btn in pairs(topTabButtons) do btn.BackgroundColor3 = (k == "Live Feed") and Color3.fromRGB(0, 10, 30) or Color3.fromRGB(20, 20, 20) end
+
+    if panels[tabName] then panels[tabName].Visible = true end
+
+    if isTop then
+        if topTabButtons[tabName] then topTabButtons[tabName].BackgroundColor3 = Color3.fromRGB(0, 80, 150) end
+    else
+        if bottomTabButtons[tabName] then bottomTabButtons[tabName].BackgroundColor3 = Color3.fromRGB(0, 100, 0) end
+    end
+    
+    if main:FindFirstChild("InvModal") then main.InvModal.Visible = false end
+end
+
+-- Create Top Tabs
+for i, name in ipairs(topTabNames) do
+    local btn = Instance.new("TextButton", main)
+    btn.Size = UDim2.new(0, 135, 0, 50)
+    btn.Position = UDim2.new(0, 10 + (i-1)*145, 0, 20)
+    btn.Text = name:upper()
+    btn.Font = Enum.Font.Code
+    btn.TextSize = 14
+    btn.TextColor3 = BLUE
+    btn.BackgroundColor3 = (name == "Live Feed") and Color3.fromRGB(0, 10, 30) or Color3.fromRGB(20, 20, 20)
+    btn.ZIndex = 5
+    Instance.new("UIStroke", btn).Color = BLUE
+
+    local panel = (name == "App Sniper") and Instance.new("Frame") or Instance.new("ScrollingFrame")
+    if panel:IsA("ScrollingFrame") then panel.ScrollBarThickness = 12 end
+    panel.Name = "Panel_" .. name
+    panel.Parent = main
+    panel.Size = UDim2.new(0.95, 0, 0.72, 0)
+    panel.Position = UDim2.new(0.025, 0, 0.25, 0)
+    panel.BackgroundTransparency = 1
+    panel.ZIndex = 4
+    panel.Visible = false
+
+    if panel:IsA("ScrollingFrame") then
+        local layout = Instance.new("UIListLayout", panel)
+        layout.Padding = UDim.new(0, 10)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+    end
+
+    topTabButtons[name] = btn
+    panels[name] = panel
+    btn.MouseButton1Click:Connect(function() switchTab(name, true) end)
+end
+
+-- Create Bottom Tabs
+for i, name in ipairs(bottomTabNames) do
+    local btn = Instance.new("TextButton", main)
+    btn.Size = UDim2.new(0, 115, 0, 60)
+    btn.Position = UDim2.new(0, 10 + (i-1)*122, 0, 80)
+    btn.Text = name:upper()
+    btn.Font = Enum.Font.Code
+    btn.TextSize = 13
+    btn.TextColor3 = GREEN
+    btn.BackgroundColor3 = Color3.fromRGB(0, 25, 0)
+    btn.ZIndex = 5
+    Instance.new("UIStroke", btn).Color = Color3.fromRGB(0, 150, 0)
+    
+    local panel = (name == "Search" or name == "Bad Profits" or name == "Show Duplicates" or name == "Networth" or name == "Scanner") and Instance.new("Frame") or Instance.new("ScrollingFrame")
+    if panel:IsA("ScrollingFrame") then panel.ScrollBarThickness = 12 end
+    panel.Name = "Panel_" .. name
+    panel.Parent = main
+    panel.Size = UDim2.new(0.95, 0, 0.72, 0)
+    panel.Position = UDim2.new(0.025, 0, 0.25, 0)
+    panel.BackgroundTransparency = 1
+    panel.ZIndex = 4
+    panel.Visible = false
+
+    if name == "Scanner" then
+        local stText = Instance.new("TextLabel", panel)
+        stText.Name = "ScannerDefaultText"
+        stText.Size = UDim2.new(1, 0, 1, 0)
+        stText.BackgroundTransparency = 1
+        stText.Font = Enum.Font.Code
+        stText.TextSize = 25
+        stText.TextColor3 = BLUE
+        stText.Text = "SMART TABLE SCANNER IS ACTIVE\n\nClick any table in the world to view intel here."
+    end
+
+    bottomTabButtons[name] = btn
+    panels[name] = panel
+    btn.MouseButton1Click:Connect(function() switchTab(name, false) end)
+end
+
+switchTab("Autobuy", false)
+
+--================================================================================
+-- NEW TAB: APP SNIPER INTEGRATION
+--================================================================================
+local appPanel = panels["App Sniper"]
+
+local appControls = Instance.new("Frame", appPanel)
+appControls.Size = UDim2.new(1, 0, 0, 50)
+appControls.BackgroundTransparency = 1
+
+local appTargetInput = Instance.new("TextBox", appControls)
+appTargetInput.Size = UDim2.new(0.4, -10, 1, 0)
+appTargetInput.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+appTargetInput.PlaceholderText = "Type shoe name here (Leave blank for ALL)..."
+appTargetInput.Text = "Air Bogdan 4"
+appTargetInput.TextColor3 = BLUE
+appTargetInput.Font = Enum.Font.Code
+appTargetInput.TextSize = 16
+Instance.new("UIStroke", appTargetInput).Color = BLUE
+
+local appModeBtn = Instance.new("TextButton", appControls)
+appModeBtn.Size = UDim2.new(0.3, -10, 1, 0)
+appModeBtn.Position = UDim2.new(0.4, 0, 0, 0)
+appModeBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+appModeBtn.Text = "[ MODE: CONSTANT SPAM ]"
+appModeBtn.TextColor3 = GREEN
+appModeBtn.Font = Enum.Font.Code
+appModeBtn.TextSize = 16
+Instance.new("UIStroke", appModeBtn).Color = Color3.fromRGB(0, 150, 0)
+
+local appToggleBtn = Instance.new("TextButton", appControls)
+appToggleBtn.Size = UDim2.new(0.3, 0, 1, 0)
+appToggleBtn.Position = UDim2.new(0.7, 0, 0, 0)
+appToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+appToggleBtn.Text = "[ START SEQUENCE ]"
+appToggleBtn.TextColor3 = GREEN
+appToggleBtn.Font = Enum.Font.Code
+appToggleBtn.TextSize = 16
+Instance.new("UIStroke", appToggleBtn).Color = Color3.fromRGB(0, 150, 0)
+
+local appLogScroll = Instance.new("ScrollingFrame", appPanel)
+appLogScroll.Size = UDim2.new(1, 0, 1, -70)
+appLogScroll.Position = UDim2.new(0, 0, 0, 70)
+appLogScroll.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+appLogScroll.ScrollBarThickness = 8
+Instance.new("UIStroke", appLogScroll).Color = Color3.fromRGB(0, 150, 0)
+local appLogLayout = Instance.new("UIListLayout", appLogScroll)
+
+local appIsRunning, appCurrentMode = false, "SPAM"
+local appActiveShoes, appSpottedLog = {}, {}
+
+local function appLogMessage(msg, color)
+    local l = Instance.new("TextLabel", appLogScroll)
+    l.Size = UDim2.new(1, 0, 0, 18)
+    l.BackgroundTransparency = 1
+    l.Text = "> " .. msg
+    l.TextColor3 = color or GREEN
+    l.Font = Enum.Font.Code
+    l.TextSize = 15
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    appLogScroll.CanvasSize = UDim2.new(0, 0, 0, appLogLayout.AbsoluteContentSize.Y)
+    appLogScroll.CanvasPosition = Vector2.new(0, appLogScroll.CanvasSize.Y.Offset)
+end
+
+appModeBtn.MouseButton1Click:Connect(function()
+    if appCurrentMode == "SPAM" then
+        appCurrentMode = "WAIT"
+        appModeBtn.Text = "[ MODE: AUTO-PING FIRE ]"
+        appLogMessage("STRATEGY UPDATED: Calculating exact latency drops.")
+    else
+        appCurrentMode = "SPAM"
+        appModeBtn.Text = "[ MODE: CONSTANT SPAM ]"
+        appLogMessage("STRATEGY UPDATED: Constant fire enabled.")
+    end
+end)
+
+appToggleBtn.MouseButton1Click:Connect(function()
+    appIsRunning = not appIsRunning
+    if appIsRunning then
+        appToggleBtn.Text = "[ STOP SEQUENCE ]"
+        appToggleBtn.TextColor3 = RED
+        appSpottedLog = {} 
+        local t = appTargetInput.Text
+        appLogMessage("SYSTEM ACTIVE. Scanning API for " .. (t=="" and "ALL shoes" or t) .. "...")
+    else
+        appToggleBtn.Text = "[ START SEQUENCE ]"
+        appToggleBtn.TextColor3 = GREEN
+        appLogMessage("SYSTEM HALTED.")
+    end
+end)
+
+task.spawn(function()
+    while task.wait(3) do
+        if appIsRunning then
+            local success, data = pcall(function() return getAppRemote:InvokeServer() end)
+            if success and data then appActiveShoes = data end
+        end
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.01) do
+        if appIsRunning and #appActiveShoes > 0 then
+            for _, itemData in pairs(appActiveShoes) do
+                local sID = itemData.value.Sn
+                local dTime = itemData.value.tm
+                local cTarget = appTargetInput.Text
+                
+                if cTarget == "" or string.find(string.lower(sID), string.lower(cTarget)) then
+                    if not appSpottedLog[sID] then
+                        appSpottedLog[sID] = true
+                        appLogMessage(">> TARGET SPOTTED: " .. tostring(sID), BLUE)
+                    end
+                    if appCurrentMode == "SPAM" then
+                        task.spawn(function()
+                            if buyAppRemote:InvokeServer(sID) == true then 
+                                appLogMessage("$$ SECURED: " .. tostring(sID), YELLOW) 
+                            end
+                        end)
+                    elseif appCurrentMode == "WAIT" then
+                        local tLeft = dTime - os.time()
+                        local pFire = LocalPlayer:GetNetworkPing() + 0.05
+                        if tLeft > 0 and tLeft % 10 == 0 and not appSpottedLog[sID.."_t_"..tLeft] then
+                            appSpottedLog[sID.."_t_"..tLeft] = true
+                            appLogMessage("   Waiting... " .. tLeft .. "s remaining.", GRAY)
+                        end
+                        if tLeft <= pFire then
+                            task.spawn(function()
+                                if buyAppRemote:InvokeServer(sID) == true then 
+                                    appLogMessage("$$ SECURED! Latency compensated.", YELLOW) 
+                                end
+                            end)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+appLogMessage("APP SNIPER INITIALIZED. Ready.")
+
+
+--================================================================================
+-- MASTER LIST RENDERING LOGIC & RARITY DATABASE (SYNCED ACROSS ALL TABS)
+--================================================================================
+local searchPanel = panels["Search"]
+
+local searchBox = Instance.new("TextBox")
+searchBox.Parent = searchPanel
+searchBox.Size = UDim2.new(0.62, 0, 0, 80) -- Shrunk to fit Rarity Button
+searchBox.Position = UDim2.new(0.03, 0, 0, 10)
+searchBox.PlaceholderText = "> FILTER_SNEAKERS..."
+searchBox.Text = ""
+searchBox.Font = Enum.Font.Code
+searchBox.TextSize = 35
+searchBox.TextColor3 = GREEN
+searchBox.BackgroundColor3 = Color3.fromRGB(0, 20, 0)
+
+local rarityFilterBtn = Instance.new("TextButton", searchPanel)
+rarityFilterBtn.Size = UDim2.new(0.3, 0, 0, 80)
+rarityFilterBtn.Position = UDim2.new(0.67, 0, 0, 10)
+rarityFilterBtn.BackgroundColor3 = Color3.fromRGB(0, 40, 80)
+rarityFilterBtn.TextColor3 = Color3.new(1, 1, 1)
+rarityFilterBtn.Font = Enum.Font.Code
+rarityFilterBtn.TextSize = 20
+rarityFilterBtn.Text = "RARITY:\nALL"
+Instance.new("UIStroke", rarityFilterBtn).Color = Color3.fromRGB(0, 100, 255)
+
+local addShoeFrame = Instance.new("Frame")
+addShoeFrame.Parent = searchPanel
+addShoeFrame.Size = UDim2.new(0.94, 0, 0, 60)
+addShoeFrame.Position = UDim2.new(0.03, 0, 0, 100)
+addShoeFrame.BackgroundColor3 = Color3.fromRGB(0, 30, 0)
+addShoeFrame.BorderSizePixel = 0
+
+local newShoeNameBox = Instance.new("TextBox")
+newShoeNameBox.Parent = addShoeFrame
+newShoeNameBox.Size = UDim2.new(0.55, -10, 1, -10)
+newShoeNameBox.Position = UDim2.new(0, 5, 0, 5)
+newShoeNameBox.PlaceholderText = "TYPE NEW SHOE NAME..."
+newShoeNameBox.Text = ""
+newShoeNameBox.Font = Enum.Font.Code
+newShoeNameBox.TextSize = 20
+newShoeNameBox.TextColor3 = Color3.new(1,1,1)
+newShoeNameBox.BackgroundColor3 = Color3.fromRGB(0, 15, 0)
+
+local newShoePriceBox = Instance.new("TextBox")
+newShoePriceBox.Parent = addShoeFrame
+newShoePriceBox.Size = UDim2.new(0.25, -10, 1, -10)
+newShoePriceBox.Position = UDim2.new(0.55, 5, 0, 5)
+newShoePriceBox.PlaceholderText = "TARGET PRICE..."
+newShoePriceBox.Text = ""
+newShoePriceBox.Font = Enum.Font.Code
+newShoePriceBox.TextSize = 20
+newShoePriceBox.TextColor3 = GREEN
+newShoePriceBox.BackgroundColor3 = Color3.fromRGB(0, 15, 0)
+
+local addShoeBtn = Instance.new("TextButton")
+addShoeBtn.Parent = addShoeFrame
+addShoeBtn.Size = UDim2.new(0.2, -10, 1, -10)
+addShoeBtn.Position = UDim2.new(0.8, 5, 0, 5)
+addShoeBtn.Text = "ADD SHOE"
+addShoeBtn.Font = Enum.Font.Code
+addShoeBtn.TextSize = 20
+addShoeBtn.TextColor3 = Color3.new(1,1,1)
+addShoeBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+
+addShoeBtn.MouseButton1Click:Connect(function()
+    local name = newShoeNameBox.Text
+    local price = cleanInput(newShoePriceBox.Text)
+    if name ~= "" and price > 0 then
+        local found = false
+        for _, p in ipairs(presetSneakers) do if p.full == name then found = true break end end
+        if not found then table.insert(presetSneakers, 1, {label=name, full=name, default=price}) end
+        shoeMaxPrices[name] = price
+        SavePrices()
+        if _G.JarvisUpdateLists then _G.JarvisUpdateLists() end
+        newShoeNameBox.Text = ""
+        newShoePriceBox.Text = ""
+        addShoeBtn.Text = "ADDED!"
+        task.wait(1)
+        addShoeBtn.Text = "ADD SHOE"
+    end
+end)
+
+local searchList = Instance.new("ScrollingFrame")
+searchList.Parent = searchPanel
+searchList.Size = UDim2.new(0.94, 0, 1, -180) 
+searchList.Position = UDim2.new(0.03, 0, 0, 170)
+searchList.BackgroundTransparency = 1
+searchList.ScrollBarThickness = 8
+local searchLayout = Instance.new("UIListLayout", searchList)
+searchLayout.Padding = UDim.new(0, 15)
+
+-- BAD PROFITS
+local badProfitsPanel = panels["Bad Profits"]
+local badProfitsBox = Instance.new("TextBox", badProfitsPanel)
+badProfitsBox.Size = UDim2.new(0.94, 0, 0, 80)
+badProfitsBox.Position = UDim2.new(0.03, 0, 0, 10)
+badProfitsBox.PlaceholderText = "> FILTER_BAD_PROFITS..."
+badProfitsBox.Text = ""
+badProfitsBox.Font = Enum.Font.Code
+badProfitsBox.TextSize = 35
+badProfitsBox.TextColor3 = RED
+badProfitsBox.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
+local badProfitsList = Instance.new("ScrollingFrame", badProfitsPanel)
+badProfitsList.Size = UDim2.new(0.94, 0, 0.85, 0)
+badProfitsList.Position = UDim2.new(0.03, 0, 0.18, 0)
+badProfitsList.BackgroundTransparency = 1
+badProfitsList.ScrollBarThickness = 8
+local badProfitsLayout = Instance.new("UIListLayout", badProfitsList)
+badProfitsLayout.Padding = UDim.new(0, 15)
+
+-- SHOW DUPLICATES
+local dupPanel = panels["Show Duplicates"]
+local dupTitle = Instance.new("TextLabel", dupPanel)
+dupTitle.Size = UDim2.new(0.62, 0, 0, 60)
+dupTitle.Position = UDim2.new(0.03, 0, 0, 10)
+dupTitle.Text = "DUPLICATE PRESETS FOUND"
+dupTitle.Font = Enum.Font.Code
+dupTitle.TextSize = 30
+dupTitle.TextColor3 = YELLOW
+dupTitle.BackgroundColor3 = Color3.fromRGB(40, 40, 0)
+
+local nukeDupesBtn = Instance.new("TextButton", dupPanel)
+nukeDupesBtn.Size = UDim2.new(0.3, 0, 0, 60)
+nukeDupesBtn.Position = UDim2.new(0.67, 0, 0, 10)
+nukeDupesBtn.Text = "NUKE ALL DUPES"
+nukeDupesBtn.Font = Enum.Font.Code
+nukeDupesBtn.TextSize = 25
+nukeDupesBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+nukeDupesBtn.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UIStroke", nukeDupesBtn).Color = Color3.fromRGB(255, 50, 50)
+
+local dupList = Instance.new("ScrollingFrame", dupPanel)
+dupList.Size = UDim2.new(0.94, 0, 0.85, 0)
+dupList.Position = UDim2.new(0.03, 0, 0.15, 0)
+dupList.BackgroundTransparency = 1
+dupList.ScrollBarThickness = 8
+local dupLayout = Instance.new("UIListLayout", dupList)
+dupLayout.Padding = UDim.new(0, 15)
+
+nukeDupesBtn.MouseButton1Click:Connect(function()
+    local seenKeys = {}
+    local toRemove = {}
+    
+    for i, shoe in ipairs(presetSneakers) do
+        local abVal = shoeMaxPrices[shoe.full] or shoe.default or 0
+        local cleanName = string.match(shoe.full:lower(), "^%s*(.-)%s*$") or shoe.full:lower()
+        local exactKey = cleanName .. "_" .. tostring(abVal)
+        
+        if seenKeys[exactKey] then
+            table.insert(toRemove, i)
+        else
+            seenKeys[exactKey] = true
+        end
+    end
+    
+    for j = #toRemove, 1, -1 do
+        table.remove(presetSneakers, toRemove[j])
+    end
+    
+    if #toRemove > 0 then
+        SavePrices() 
+        if _G.JarvisUpdateLists then _G.JarvisUpdateLists() end
+        nukeDupesBtn.Text = "NUKED " .. #toRemove .. " DUPES!"
+        nukeDupesBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 0)
+        task.wait(1.5)
+        nukeDupesBtn.Text = "NUKE ALL DUPES"
+        nukeDupesBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+    else
+        nukeDupesBtn.Text = "NO EXACT DUPES"
+        task.wait(1.5)
+        nukeDupesBtn.Text = "NUKE ALL DUPES"
+    end
+end)
+
+-- LOW TARGETS
+local lowTargetsList = panels["Low Targets"]
+
+-- ====================================================================
+-- THE HUGE RARITY DATABASE SAVER
+-- ====================================================================
+local rarityColors = {
+    ["SPECIAL"] = Color3.fromRGB(76, 81, 247),
+    ["LEGACY"] = Color3.fromRGB(0, 170, 100),
+    ["GRAIL"] = Color3.fromRGB(2, 190, 209),
+    ["LIMITED"] = Color3.fromRGB(255, 50, 50),
+    ["LEGENDARY"] = Color3.fromRGB(255, 128, 0),
+    ["EPIC"] = Color3.fromRGB(163, 53, 238),
+    ["UNCOMMON"] = Color3.fromRGB(20, 200, 0),
+    ["COMMON"] = Color3.fromRGB(189, 189, 189),
+    ["UNKNOWN"] = Color3.fromRGB(100, 100, 100)
+}
+
+local shoeRarities = {
+    ["Mike Air Force 1"] = "COMMON", ["Mike Air Force 1 Black"] = "COMMON", ["Mike Air Force 1 White"] = "COMMON", ["Zeezy Slide Azure"] = "COMMON", ["Zeezy Slide Ochre"] = "COMMON", ["Zeezy Slide Glow Green"] = "COMMON", ["Adios Samba Black"] = "COMMON", ["Bapesta Sax"] = "COMMON", ["Air Bogdan 1 Low Powder Blue"] = "COMMON", ["Mike SB Dunk Low Court Purple"] = "COMMON", ["Green Flip Flop"] = "COMMON", ["Blue Flip Flop"] = "COMMON", ["Green Grocs"] = "COMMON", ["Mike White Slides"] = "COMMON", ["Mike SB Dunk Low Pro White Gum"] = "COMMON", ["Adios Samba Solar Red"] = "COMMON", ["Air Bogdan 1 High UNC to Chicago"] = "COMMON",
+    ["Mike Air Force 1 Super Black"] = "UNCOMMON", ["Mike Air Force 1 Super White"] = "UNCOMMON", ["Mike Dunk Low Panda"] = "UNCOMMON", ["Zeezy Slide Pure"] = "UNCOMMON", ["Zeezy Slide Enflame Orange"] = "UNCOMMON", ["Air Bogdan 1 Low Reverse Bred"] = "UNCOMMON", ["Air Bogdan 1 Low Smoke Grey"] = "UNCOMMON", ["Air Bogdan 1 Low Shadow Toe"] = "UNCOMMON", ["Air Bogdan 4 Red Thunder"] = "UNCOMMON", ["Bapesta Black"] = "UNCOMMON", ["Mike SB Dunk Low Super Panda"] = "UNCOMMON", ["Batesta Captain Americano"] = "UNCOMMON", ["Air Bogdan 1 Low Green Toe"] = "UNCOMMON", ["Mike Dunk Low UNC"] = "UNCOMMON", ["Air Bogdan 1 Low Black Toe"] = "UNCOMMON", ["Air Bogdan 1 Skyline"] = "UNCOMMON", ["Black Grocs"] = "UNCOMMON", ["Yellow Grocs"] = "UNCOMMON", ["Pink Shark Slides"] = "UNCOMMON", ["Zeezy Foam Runner Carbon"] = "UNCOMMON", ["Zeezy Foam Runner Clay Red"] = "UNCOMMON", ["Air Bogdan 1 High Pine Green"] = "UNCOMMON", ["Air Bogdan 3 Racer Blue"] = "UNCOMMON", ["AMBUSH Air Force 1 Game Royal"] = "UNCOMMON", ["AMBUSH Air Force 1 Pine Green"] = "UNCOMMON", ["Mike Kobe 8 Protro Lakers Away"] = "UNCOMMON", ["Air Bogdan 3 Dark Iris"] = "UNCOMMON", ["Ivie Yuitton Trainer Monogram Denim Grey White"] = "UNCOMMON", ["Mike Dunk Low Panda-Monium Dusty Olive"] = "UNCOMMON", ["Mike Dunk Low Panda-Monium Picante Red"] = "UNCOMMON", ["Mike Dunk Low Panda-Monium Court Blue"] = "UNCOMMON", ["Mike Vomero 5 Electric Green"] = "UNCOMMON", ["Super x Mike SB Dunk Low 94 Ocean Fog"] = "UNCOMMON", ["Air Bogdan 1 Low Olive"] = "UNCOMMON", ["Air Bogdan 5 White Cement"] = "UNCOMMON", ["Air Bogdan 6 Carmine"] = "UNCOMMON", ["Mike Air Force 1 Black Gum"] = "UNCOMMON",
+    ["Mike Dunk Low Argon"] = "EPIC", ["Mike Dunk Low Grey Fog"] = "EPIC", ["Zeezy Slide Onyx"] = "EPIC", ["Air Bogdan 1 High Patent Bred"] = "EPIC", ["Adios Samba Sporty & Rich"] = "EPIC", ["Air Bogdan 4 Midnight Navy"] = "EPIC", ["Air Bogdan 4 Thunder"] = "EPIC", ["Air Bogdan 4 Metallic Purple"] = "EPIC", ["Mike SB Dunk Low Orange Lobster"] = "EPIC", ["Mike SB Dunk Low Super Barkroot Brown"] = "EPIC", ["Mike SB Dunk Low Super Hyper Royal"] = "EPIC", ["Batesta Black Window"] = "EPIC", ["Mike Dunk Low Chicago Split"] = "EPIC", ["Air Bogdan 4 Infrared"] = "EPIC", ["Air Bogdan 3 Palomino"] = "EPIC", ["Adios Adilette Slides"] = "EPIC", ["Mike Black Slides"] = "EPIC", ["McRonalds Grocs"] = "EPIC", ["7-Eleven Grocs"] = "EPIC", ["White Grocs"] = "EPIC", ["Adios Box Shoe"] = "EPIC", ["Air Bogdan 11 Playoffs Bred"] = "EPIC", ["Air Bogdan 4 Red Cement"] = "EPIC", ["Air Bogdan 2 J Balvin"] = "EPIC", ["Zeezy Foam Runner Onyx"] = "EPIC", ["Zeezy Foam Runner Sand"] = "EPIC", ["Air Bogdan 4 Canyon Purple"] = "EPIC", ["Air Max Plus Voltage Purple"] = "EPIC", ["Ivie Yuitton Trainer Monogram Denim White Blue"] = "EPIC", ["Ivie Yuitton Trainer Black Embossed Monogram"] = "EPIC", ["Ivie Yuitton by Tyler, the Maker Trainer White Mocha"] = "EPIC", ["Mike Dunk Low Panda-Monium White Black"] = "EPIC", ["Mike Dunk Low Panda-Monium Sea Glass"] = "EPIC", ["Air Bogdan 5 Raging Bull Red"] = "EPIC", ["Mike Air Force 1 Black Skeleton"] = "EPIC", ["Mike Air Force 1 Purple Skeleton"] = "EPIC", ["Mike Air Force 1 Orange Skeleton"] = "EPIC", ["Mike Vomero 5 Racer Blue"] = "EPIC", ["Cocoa Puffs Grocs"] = "EPIC", ["Lumberland 6-Inch Boot Wheat"] = "EPIC", ["Super x Mike SB Dunk Low 94 Camper Green"] = "EPIC", ["Super x Mike SB Dunk Low 94 Ink"] = "EPIC", ["On-White Air Force 1 MCA Blue"] = "EPIC", ["On-White Dunk Low University Red"] = "EPIC", ["Mike SB Dunk Low Albino & Preto"] = "EPIC", ["Mike SB Dunk Low Yuto"] = "EPIC", ["Air Bogdan 4 Black Cement"] = "EPIC", ["Air Bogdan 11 Low Bred"] = "EPIC",
+    ["Mike SB Dunk Low Mummy"] = "LEGENDARY", ["Zeezy Slide Bone"] = "LEGENDARY", ["Air Bogdan 1 High University Blue"] = "LEGENDARY", ["Air Bogdan 1 High Mocha"] = "LEGENDARY", ["Adios Samba Wales Bonner"] = "LEGENDARY", ["Air Bogdan 4 Military Black"] = "LEGENDARY", ["Bapesta Hulk"] = "LEGENDARY", ["Air Bogdan 1 High Shattered Backboard"] = "LEGENDARY", ["Mike SB Dunk Low Purple Lobster"] = "LEGENDARY", ["Mike SB Dunk Low Green Lobster"] = "LEGENDARY", ["Mike SB Dunk Low Super Mean Green"] = "LEGENDARY", ["Batesta Steel Man"] = "LEGENDARY", ["Ivie Yuitton Air Force 1 White Team Royal"] = "LEGENDARY", ["Ivie Yuitton Air Force 1 White Gym Green"] = "LEGENDARY", ["Air Bogdan 4 Neon"] = "LEGENDARY", ["Air Bogdan 4 Bred Reimagined"] = "LEGENDARY", ["Air Bogdan 11 DMP Gratitude"] = "LEGENDARY", ["AMBUSH Air Force 1 White"] = "LEGENDARY", ["Air Bogdan 3 J Balvin Medellin Sunset"] = "LEGENDARY", ["Air Bogdan 3 J Balvin Rio"] = "LEGENDARY", ["Zeezy Foam Runner Vermilion"] = "LEGENDARY", ["Zeezy Foam Runner Clay Taupe"] = "LEGENDARY", ["Barbie Grocs"] = "LEGENDARY", ["Toy Story Grocs"] = "LEGENDARY", ["Chinatown Market Grocs"] = "LEGENDARY", ["Blue Shark Slides"] = "LEGENDARY", ["Air Bogdan 1 High Court Purple"] = "LEGENDARY", ["Air Max Plus Hyper Blue"] = "LEGENDARY", ["Air Max Plus Sunset"] = "LEGENDARY", ["Ivie Yuitton Trainer Monogram Denim White Green"] = "LEGENDARY", ["Ivie Yuitton by Tyler, the Maker Trainer Mocha"] = "LEGENDARY", ["Ivie Yuitton by Tyler, the Maker Trainer Blue"] = "LEGENDARY", ["Mike Dunk Low Panda-Monium Violet"] = "LEGENDARY", ["Mike Dunk Low Panda-Monium Red"] = "LEGENDARY", ["Air Bogdan 5 Grape"] = "LEGENDARY", ["Air Bogdan 5 Black Metallic"] = "LEGENDARY", ["Air Bogdan 1 High Clay Green"] = "LEGENDARY", ["Mike Kobe 6 Protro Dodgers"] = "LEGENDARY", ["Mike Foamposite One Black Volt"] = "LEGENDARY", ["Mike Foamposite One Cough Drop"] = "LEGENDARY", ["Mike Vomero 5 Laser Orange"] = "LEGENDARY", ["Trix Grocs"] = "LEGENDARY", ["Honey Nut Cheerios Grocs"] = "LEGENDARY", ["Lumberland 6-Inch Boot Black"] = "LEGENDARY", ["Lumberland 6-Inch Boot Super Wheat"] = "LEGENDARY", ["EGG Mini Boot Sand"] = "LEGENDARY", ["EGG Tasman II Slipper Chestnut"] = "LEGENDARY", ["Super x Mike SB Dunk Low 94 Black"] = "LEGENDARY", ["Mike Air Force 1 UNDEFEATED"] = "LEGENDARY", ["On-White Air Force 1 Brooklyn"] = "LEGENDARY", ["On-White Air Force 1 Lemonade"] = "LEGENDARY", ["On-White Dunk Low University Gold"] = "LEGENDARY", ["On-White Dunk Low Pine Green"] = "LEGENDARY", ["Mike SB Dunk Low April"] = "LEGENDARY", ["Air Bogdan 11 Rare Air"] = "LEGENDARY", ["Air Max Plus Lemon Venom"] = "LEGENDARY",
+    ["Air Bogdan 1 Chicago"] = "GRAIL", ["Air Bogdan 1 High Bior"] = "GRAIL", ["Air Bogdan 1 High Trevor Mocha"] = "GRAIL", ["Big Red Boots"] = "GRAIL", ["Mike SB Dunk Low Blossom"] = "GRAIL", ["Mike SB Dunk Low Bubbles"] = "GRAIL", ["Mike SB Dunk Low Buttercup"] = "GRAIL", ["Air Bogdan 1 Low Trevor Reverse Mocha"] = "GRAIL", ["Air Bogdan 1 High On-White Chicago"] = "GRAIL", ["Mike SB Dunk Low Blue Lobster"] = "GRAIL", ["Mike SB Dunk Low Red Lobster"] = "GRAIL", ["Mike SB Dunk Low Super Cammellzee"] = "GRAIL", ["Air Bogdan 1 Low Bior"] = "GRAIL", ["Mike Air Nag"] = "GRAIL", ["Batesta Spooderman"] = "GRAIL", ["Ivie Yuitton Air Force 1 White Comet Red"] = "GRAIL", ["Ivie Yuitton Air Force 1 Monogram Damier"] = "GRAIL", ["Air Bogdan 1 High Trevor Fragment"] = "GRAIL", ["Air Bogdan 1 Low Trevor Fragment"] = "GRAIL", ["Big Yellow Boots"] = "GRAIL", ["Mike SB Dunk Low Cactus Jack"] = "GRAIL", ["Mike Kobe 6 Reverse Grinch"] = "GRAIL", ["Mike Kobe 6 Grinch"] = "GRAIL", ["Mike SB Dunk Low Freddy Krueger"] = "GRAIL", ["Gocci Flip Flop"] = "GRAIL", ["Carrots Grocs"] = "GRAIL", ["Shrek Grocs"] = "GRAIL", ["KSI Grocs"] = "GRAIL", ["Gold Grocs"] = "GRAIL", ["Air Bogdan 1 Low Trevor Phantom"] = "GRAIL", ["Air Bogdan 3 White Cement"] = "GRAIL", ["Mater Grocs"] = "GRAIL", ["Lightning McQueen Grocs"] = "GRAIL", ["AMBUSH Air Force 1 Black"] = "GRAIL", ["Air Bogdan 1 High J Balvin"] = "GRAIL", ["Zeezy Foam Runner Gold"] = "GRAIL", ["Mike Air Zeezy 2 Pure Platinum"] = "GRAIL", ["Mike Dunk Low Trevor Scott x PlayStation"] = "GRAIL", ["Golden Boot"] = "GRAIL", ["Air Bogdan 2 Iron Purple"] = "GRAIL", ["Air Max Plus Baltic Blue"] = "GRAIL", ["Air Max Plus FC Barcelona"] = "GRAIL", ["Air Bogdan 1 High On-White Euro"] = "GRAIL", ["Ivie Yuitton Trainer White Moka Brown"] = "GRAIL", ["Ivie Yuitton by Tyler, the Maker Trainer Beige"] = "GRAIL", ["Ivie Yuitton by Tyler, the Maker Trainer Multicolor"] = "GRAIL", ["Mike Dunk Low Panda-Monium Green Curry"] = "GRAIL", ["Mike Dunk Low Panda-Monium Multi Color"] = "GRAIL", ["Mike Dunk Low Panda-Monium Grade"] = "GRAIL", ["Air Bogdan 5 UNC"] = "GRAIL", ["Air Bogdan 5 On-White Sail"] = "GRAIL", ["Air Bogdan 4 Military Blue"] = "GRAIL", ["Mike Vomero 5 Platinum Tint"] = "GRAIL", ["Mike Air Force 1 Trevor Scott Utopia"] = "GRAIL", ["Mike Air Force 1 Cactus Jack"] = "GRAIL", ["Bogdan Jumpman Jack Trevor Sail"] = "GRAIL", ["Mike Air Max Trevor Scott Baroque Brown"] = "GRAIL", ["Air Bogdan 1 Low Trevor Canary"] = "GRAIL", ["Air Max Plus One Block Down Blue"] = "GRAIL", ["Air Max Plus One Block Down Chutney"] = "GRAIL", ["Mike Air Force 1 Skeleton"] = "GRAIL", ["Air Bogdan 1 Low Zion Voodoo"] = "GRAIL", ["Mike Kobe 6 Kay Yow Think Pink"] = "GRAIL", ["Mike Kobe Gold"] = "GRAIL", ["Mike Kobe 8 Protro What The"] = "GRAIL", ["Mike Foamposite One International Blue"] = "GRAIL", ["Mike Foamposite One Metallic Red"] = "GRAIL", ["Mike Foamposite One Galaxy"] = "GRAIL", ["Mike SB Dunk Low Grateful Dead Green"] = "GRAIL", ["Mike SB Dunk Low Grateful Dead Orange"] = "GRAIL", ["Mike SB Dunk Low Grateful Dead Yellow"] = "GRAIL", ["Bogdan Jumpman Jack Trevor Mocha"] = "GRAIL", ["Air Bogdan 1 Low Trevor Velvet Brown"] = "GRAIL", ["Ivie Yuitton Lumberland 6-Inch Boot Wheat"] = "GRAIL", ["Lumberland 6-Inch Boot SpongeBro Blue"] = "GRAIL", ["Mike Vomero 5 Thunder Blue Cream"] = "GRAIL", ["Cinnamon Toast Crunch Grocs"] = "GRAIL", ["Super x Mike SB Dunk Low 94 White"] = "GRAIL", ["Mike Dunk Low Gold"] = "GRAIL", ["Air Bogdan 5 DJ Khalid Crimson Bliss"] = "GRAIL", ["Air Bogdan 4 Michigan PE"] = "GRAIL", ["Mike SB Dunk Low Yellow Lobster"] = "GRAIL", ["Mike SB Dunk Low White Lobster"] = "GRAIL", ["Mike SB Dunk High NF Doom"] = "GRAIL", ["Air Bogdan 4 Retro Lightning"] = "GRAIL", ["On-White Air Force 1 Black"] = "GRAIL", ["On-White Air Force 1 ComplexCon Exclusive"] = "GRAIL", ["Mike SB Dunk Low Crenshaw"] = "GRAIL", ["On-White Dunk Low Lot 50 of 50"] = "GRAIL", ["On-White Dunk Low Lot 01 of 50"] = "GRAIL", ["Mike Air Max 1 Anniversary Blue"] = "GRAIL", ["Mike Air Max 1 Anniversary Red"] = "GRAIL", ["Tralalelo Sneakers"] = "GRAIL", ["Mike SB Dunk High MF Doom"] = "GRAIL", ["Air Bogdan 1 Low Trevor Fragment Sail"] = "GRAIL", ["Air Bogdan 1 Low Zion Voodoo Alternate"] = "GRAIL", ["Air Bogdan 4 SB Navy"] = "GRAIL", ["Air Bogdan 5 Awake NY Pink"] = "GRAIL", ["Air Bogdan 5 Awake NY Black"] = "GRAIL",
+    ["Air Bogdan 4 Black Cat"] = "LIMITED", ["Air Bogdan 4 UNC"] = "LIMITED", ["Air Bogdan 4 A Ma Maniere"] = "LIMITED", ["Mike SB Dunk Low Why So Sad"] = "LIMITED", ["Air Bogdan 1 High Spiderverse"] = "LIMITED", ["Air Bogdan 4 SB Pine Green"] = "LIMITED", ["Air Bogdan 1 Low Trevor Mocha"] = "LIMITED", ["Air Bogdan 1 Low Trevor Olive"] = "LIMITED", ["Air Bogdan 1 High On-White UNC"] = "LIMITED", ["Air Bogdan 4 Metallic Red"] = "LIMITED", ["Air Bogdan 4 On-White Sail"] = "LIMITED", ["Adios Samba White Core Burgundy"] = "LIMITED", ["Air Bogdan 1 High Taxi"] = "LIMITED", ["Mike SB Dunk Low Jaritos"] = "LIMITED", ["Mike Air Force 1 Tiffany"] = "LIMITED", ["Mike SB Dunk Low Pigeon"] = "LIMITED", ["Mike Dunk Low Setsubun"] = "LIMITED", ["Air Bogdan 3 Fire Red"] = "LIMITED", ["Air Bogdan 4 Kaws"] = "LIMITED", ["Skibidi Sneakers"] = "LIMITED", ["Air Bogdan 4 Wet Cement"] = "LIMITED", ["Air Bogdan 3 Wings"] = "LIMITED", ["Mike SB Dunk Low Burnt Sunrise"] = "LIMITED", ["Mike Dunk Low Cacao and Pink"] = "LIMITED", ["Air Bogdan 6 Olympic"] = "LIMITED", ["Mike Vomero 5 Bright Crimson"] = "LIMITED", ["Mike SB Dunk Low There Skateboards"] = "LIMITED", ["Air Bogdan 6 Pearl"] = "LIMITED", ["Air Max Plus Black Tea"] = "LIMITED", ["Air Bogdan 1 High Black And Gold"] = "LIMITED", ["Air Bogdan 11 Low Diffused Blue"] = "LIMITED", ["Air Bogdan 4 White Thunder"] = "LIMITED", ["Air Bogdan 1 Low Oxydized Green"] = "LIMITED", ["Mike Dunk High Panda"] = "LIMITED", ["Air Bogdan 3 Cement Grey"] = "LIMITED", ["Mike Dunk Low Silver Blue"] = "LIMITED", ["Mike SB Dunk Low Sesame and Pear"] = "LIMITED", ["Air Bogdan 1 High Midnight Navy"] = "LIMITED", ["Mike SB Dunk Low Verdy Visty"] = "LIMITED", ["Mike Dunk Low Ceramic"] = "LIMITED", ["Air Bogdan 1 Low Mocha"] = "LIMITED", ["Air Bogdan 1 Low PSG"] = "LIMITED", ["Mike SB Dunk Low Light Carbon Monarch"] = "LIMITED", ["Air Bogdan 1 High Satin Shadow"] = "LIMITED", ["Mike SB Dunk Low Gold and Dark Red"] = "LIMITED", ["Air Bogdan 1 Low Gym Red & Midnight Navy"] = "LIMITED", ["Mike Air Max 1 Cosmic Clay"] = "LIMITED", ["Mike Vomero 5 Metallic Silver"] = "LIMITED", ["Air Bogdan 4 Orchid"] = "LIMITED", ["Mike Air Force 1 Halloween"] = "LIMITED", ["Mike SB Dunk Low Day of the Dead"] = "LIMITED", ["Mike Air Force 1 White Halloween"] = "LIMITED", ["Mike Dunk Low LA Baltic Blue"] = "LIMITED", ["Mike Wu-Tang Clan Dunk High"] = "LIMITED", ["Air Bogdan 4 Fear"] = "LIMITED", ["Air Bogdan 3 Black Cement"] = "LIMITED", ["Mike SB Dunk High Antihero"] = "LIMITED", ["Air Bogdan 1 Low Game Royal"] = "LIMITED", ["Mike SB Dunk Low Black and Smoke Grey"] = "LIMITED", ["Mike Air Force 1 Kobe"] = "LIMITED", ["Mike SB Dunk Low Fir and Fire Red"] = "LIMITED", ["Mike Air Force 1 x Stash"] = "LIMITED", ["Air Bogdan 11 Legend Blue"] = "LIMITED", ["Mike SB Dunk Low The Wizard of Oz"] = "LIMITED", ["Elf Shoes"] = "LIMITED", ["Mike SB Dunk Low Black and White"] = "LIMITED", ["Mike SB Dunk Low White and Black"] = "LIMITED", ["Mike SB Dunk Low Riot Skateshop"] = "LIMITED", ["Air Bogdan 1 Low Year of the Snake"] = "LIMITED", ["Air Bogdan 3 Treat Yourself"] = "LIMITED", ["Air Bogdan 1 High Black Toe Reimagined"] = "LIMITED", ["Mike SB Dunk Low Black and Aluminium"] = "LIMITED", ["Air Bogdan 3 Lucky Shorts"] = "LIMITED", ["Air Bogdan 4 Nigel"] = "LIMITED", ["Mike Air Force 1 Linen"] = "LIMITED", ["Air Bogdan 1 Low Obsidian"] = "LIMITED", ["Adios Zeezy Boost 350 Beluga"] = "LIMITED", ["Adios Zeezy Boost 350 Black Static"] = "LIMITED", ["Adios Zeezy Boost 350 Bone"] = "LIMITED", ["Adios Zeezy Boost 350 Core Black Red"] = "LIMITED", ["Adios Zeezy Boost 350 Oreo"] = "LIMITED", ["Adios Zeezy Boost 350 Zebra"] = "LIMITED", ["Air Bogdan 4 White Cement"] = "LIMITED", ["Air Bogdan 1 High UNC Reimagined"] = "LIMITED", ["Air Bogdan 6 Reverse Oreo"] = "LIMITED", ["Air Bogdan 1 Low Washed Denim"] = "LIMITED", ["Mike Air Force 1 Lil Yachty"] = "LIMITED", ["Air Bogdan 3 Rare Air"] = "LIMITED", ["Mike SB Dunk Low Pale Ivory"] = "LIMITED", ["Mike SB Dunk Low Hayley Wilson"] = "LIMITED", ["Air Bogdan 3 Pure Money"] = "LIMITED", ["Mike Air Force 1 Kobe x Barcelona Violet"] = "LIMITED", ["Mike Air Force 1 Anthracite"] = "LIMITED", ["Air Bogdan 1 High Baroque Brown"] = "LIMITED", ["Air Bogdan 5 Fire Red"] = "LIMITED", ["Air Bogdan 5 Varsity Maize"] = "LIMITED", ["Air Bogdan 1 Low Chicago"] = "LIMITED", ["Air Bogdan 11 Pearl"] = "LIMITED", ["Mike Air Force 1 Pink Foam"] = "LIMITED", ["Mike Air Max 1 Stranger Things"] = "LIMITED", ["Air Bogdan 11 Gamma Blue"] = "LIMITED", ["Mike Air Force 1 Varsity Red-White"] = "LIMITED", ["Air Bogdan 4 Flight Club"] = "LIMITED", ["Mike SB Dunk Low Bronx"] = "LIMITED", ["Air Bogdan 1 Low Medium Olive"] = "LIMITED", ["Air Bogdan 5 DJ Khalid Court Purple"] = "LIMITED", ["Mike SB Dunk Low London"] = "LIMITED", ["Air Bogdan 4 Imperial Purple"] = "LIMITED", ["Air Bogdan 1 High Psychic Blue"] = "LIMITED", ["Air Bogdan 3 Family Affair"] = "LIMITED", ["Mike Vomero 5 British Tan"] = "LIMITED", ["Air Bordan 1 Low Triple Stack Psychic Blue"] = "LIMITED", ["Bogdan Jumpman Jack Trevor Green Spark"] = "LIMITED", ["Mike Air Force 1 Topaz Gold"] = "LIMITED", ["Mike Air Force 1 Mystic Navy"] = "LIMITED", ["Mike Air Force 1 Dark Team Red"] = "LIMITED", ["Air Bogdan 4 PSG"] = "LIMITED", ["Adios Copa Mundial"] = "LIMITED", ["Mike Mercurial Superfly 9 Lemonade"] = "LIMITED", ["Adios Predator 19+ Blue"] = "LIMITED", ["Adios Performance Predator"] = "LIMITED", ["Adios Predator 19+ Pogba"] = "LIMITED", ["Mike Mercurial Superfly 9 Pink"] = "LIMITED", ["Air Bogdan 3 Elvi's Indigo"] = "LIMITED", ["Air Bogdan 5 Wolf Grey"] = "LIMITED", ["Mike Foamposite One Stranger Things"] = "LIMITED", ["Air Bogdan 11 Concord"] = "LIMITED", ["Air Bogdan 4 Trevor Scott"] = "LIMITED",
+    ["Kanye East Batesta"] = "SPECIAL", ["Air Bogdan 3 A Ma Maniere"] = "SPECIAL", ["Air Bogdan 11 Cool Grey"] = "SPECIAL", ["Mike Air Max 1/97 Sean Wotherspoon"] = "SPECIAL", ["Air Bogdan 4 Emenem Carhartt"] = "SPECIAL", ["Mike Air Zeezy 2 Solar Red"] = "SPECIAL", ["Bogdan Jumpman Jack Trevor University Red"] = "SPECIAL",
+    ["Air Bogdan 4 Craft Medium Olive"] = "LEGACY", ["Air Bogdan 4 Motorsport"] = "LEGACY", ["Mike SB Dunk Low Yuto Asparagus"] = "LEGACY", ["Air Bogdan 4 A Ma Maniere WYWS"] = "LEGACY", ["Bogdan Jumpman Jack Trevor Bright Cactus"] = "LEGACY", ["Ivie Yuitton IY Trainer White Black"] = "LEGACY", ["Mike SB Dunk Low Sunblush Futura"] = "LEGACY", ["Mike SB Dunk Low Sandy Bodecker"] = "LEGACY", ["Air Bogdan 4 Trevor Scott Purple"] = "LEGACY", ["Air Bogdan 4 Doernbecher"] = "LEGACY", ["Air Bogdan 1 High On-White Canary"] = "LEGACY", ["Mike SB Dunk Low Paris"] = "LEGACY"
+}
+
+-- Rarity Filter Cycler
+local currentRarityFilter = "ALL"
+local rarityList = {"ALL", "COMMON", "UNCOMMON", "EPIC", "LEGENDARY", "GRAIL", "LIMITED", "SPECIAL", "LEGACY", "UNKNOWN"}
+local rarityIndex = 1
+
+rarityFilterBtn.MouseButton1Click:Connect(function()
+    rarityIndex = rarityIndex + 1
+    if rarityIndex > #rarityList then rarityIndex = 1 end
+    currentRarityFilter = rarityList[rarityIndex]
+    rarityFilterBtn.Text = "RARITY:\n" .. currentRarityFilter
+    if _G.JarvisUpdateLists then _G.JarvisUpdateLists() end
+end)
+
+
+local function createSearchShoeFrame(parentList, shoe, marketVal, abVal, profit, rarityTag)
+    local itemFrame = Instance.new("Frame", parentList)
+    itemFrame.Size = UDim2.new(1, -20, 0, 100)
+    itemFrame.BackgroundColor3 = Color3.fromRGB(0, 30, 0)
+    
+    local nameLbl = Instance.new("TextLabel", itemFrame)
+    nameLbl.Size = UDim2.new(0.55, 0, 0.4, 0)
+    nameLbl.Text = " [" .. rarityTag .. "] " .. shoe.full
+    nameLbl.TextColor3 = rarityColors[rarityTag] or GREEN
+    nameLbl.Font = Enum.Font.Code
+    nameLbl.TextSize = 20
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+    nameLbl.BackgroundTransparency = 1
+    
+    local profitLbl = Instance.new("TextLabel", itemFrame)
+    profitLbl.Size = UDim2.new(0.55, 0, 0.4, 0)
+    profitLbl.Position = UDim2.new(0, 0, 0.4, 0)
+    if marketVal == 0 then
+        profitLbl.Text = " MARKET: UNKNOWN | PROFIT: N/A"
+        profitLbl.TextColor3 = YELLOW
+    else
+        profitLbl.Text = " MARKET: $" .. formatNumber(marketVal) .. " | PROFIT: $" .. formatNumber(profit)
+        profitLbl.TextColor3 = profit > 0 and GREEN or RED
+    end
+    profitLbl.Font = Enum.Font.Code
+    profitLbl.TextSize = 16
+    profitLbl.TextXAlignment = Enum.TextXAlignment.Left
+    profitLbl.BackgroundTransparency = 1
+
+    local priceEdit = Instance.new("TextBox", itemFrame)
+    priceEdit.Size = UDim2.new(0.25, 0, 0.6, 0)
+    priceEdit.Position = UDim2.new(0.56, 0, 0.2, 0)
+    priceEdit.Text = formatNumber(abVal)
+    priceEdit.BackgroundColor3 = Color3.fromRGB(0, 60, 0)
+    priceEdit.TextColor3 = Color3.new(1, 1, 1)
+    priceEdit.Font = Enum.Font.Code
+    priceEdit.TextSize = 22
+    priceEdit.ClearTextOnFocus = false 
+    
+    priceEdit.FocusLost:Connect(function()
+        local val = cleanInput(priceEdit.Text)
+        if val > 0 then
+            shoeMaxPrices[shoe.full] = val 
+            priceEdit.Text = formatNumber(val)
+            SavePrices() 
+        else
+            priceEdit.Text = formatNumber(shoeMaxPrices[shoe.full])
+        end
+        if _G.JarvisUpdateLists then _G.JarvisUpdateLists() end
+    end)
+
+    local delBtn = Instance.new("TextButton", itemFrame)
+    delBtn.Size = UDim2.new(0.15, 0, 0.6, 0)
+    delBtn.Position = UDim2.new(0.83, 0, 0.2, 0)
+    delBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+    delBtn.TextColor3 = Color3.new(1, 1, 1)
+    delBtn.Font = Enum.Font.Code
+    delBtn.TextSize = 18
+    delBtn.Text = "DELETE"
+    Instance.new("UIStroke", delBtn).Color = Color3.fromRGB(150, 0, 0)
+    
+    delBtn.MouseButton1Click:Connect(function()
+        shoeMaxPrices[shoe.full] = nil
+        for i, p in ipairs(presetSneakers) do
+            if p.full == shoe.full then table.remove(presetSneakers, i) break end
+        end
+        SavePrices()
+        if _G.JarvisUpdateLists then _G.JarvisUpdateLists() end
+    end)
+end
+
+local function createDuplicateShoeFrame(parentList, shoe)
+    local itemFrame = Instance.new("Frame", parentList)
+    itemFrame.Size = UDim2.new(1, -20, 0, 100)
+    itemFrame.BackgroundColor3 = Color3.fromRGB(0, 30, 0)
+    
+    local img = Instance.new("ImageLabel", itemFrame)
+    img.Size = UDim2.new(0, 80, 0, 80)
+    img.Position = UDim2.new(0, 10, 0, 10)
+    img.BackgroundTransparency = 1
+    img.ScaleType = Enum.ScaleType.Fit
+    img.Image = getInGameShoeImage(shoe.full)
+
+    local nameLbl = Instance.new("TextLabel", itemFrame)
+    nameLbl.Size = UDim2.new(0.6, 0, 0.4, 0)
+    nameLbl.Position = UDim2.new(0, 100, 0, 10)
+    nameLbl.Text = " " .. shoe.full
+    nameLbl.TextColor3 = YELLOW
+    nameLbl.Font = Enum.Font.Code
+    nameLbl.TextSize = 22
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+    nameLbl.BackgroundTransparency = 1
+    
+    local warnLbl = Instance.new("TextLabel", itemFrame)
+    warnLbl.Size = UDim2.new(0.6, 0, 0.4, 0)
+    warnLbl.Position = UDim2.new(0, 100, 0, 50)
+    warnLbl.Text = " EXACT DUPLICATE MATCH DETECTED"
+    warnLbl.TextColor3 = RED
+    warnLbl.Font = Enum.Font.Code
+    warnLbl.TextSize = 16
+    warnLbl.TextXAlignment = Enum.TextXAlignment.Left
+    warnLbl.BackgroundTransparency = 1
+
+    local searchBtn = Instance.new("TextButton", itemFrame)
+    searchBtn.Size = UDim2.new(0.2, 0, 0.6, 0)
+    searchBtn.Position = UDim2.new(0.75, 0, 0.2, 0)
+    searchBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
+    searchBtn.TextColor3 = Color3.new(1, 1, 1)
+    searchBtn.Font = Enum.Font.Code
+    searchBtn.TextSize = 16
+    searchBtn.Text = "AUTO-SEARCH"
+    Instance.new("UIStroke", searchBtn).Color = Color3.fromRGB(0, 100, 255)
+    
+    searchBtn.MouseButton1Click:Connect(function()
+        searchBox.Text = shoe.full
+        switchTab("Search", false) 
+    end)
+end
+
+local function createReadOnlyShoeFrame(parentList, shoe, marketVal, profit, customSubtext, customColor)
+    local itemFrame = Instance.new("Frame", parentList)
+    itemFrame.Size = UDim2.new(1, -20, 0, 100)
+    itemFrame.BackgroundColor3 = Color3.fromRGB(0, 30, 0)
+    
+    local img = Instance.new("ImageLabel", itemFrame)
+    img.Size = UDim2.new(0, 80, 0, 80)
+    img.Position = UDim2.new(0, 10, 0, 10)
+    img.BackgroundTransparency = 1
+    img.ScaleType = Enum.ScaleType.Fit
+    img.Image = getInGameShoeImage(shoe.full)
+
+    local nameLbl = Instance.new("TextLabel", itemFrame)
+    nameLbl.Size = UDim2.new(1, -110, 0.4, 0)
+    nameLbl.Position = UDim2.new(0, 100, 0, 10)
+    nameLbl.Text = " " .. shoe.full
+    nameLbl.TextColor3 = customColor or GREEN
+    nameLbl.Font = Enum.Font.Code
+    nameLbl.TextSize = 22
+    nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+    nameLbl.BackgroundTransparency = 1
+    
+    local profitLbl = Instance.new("TextLabel", itemFrame)
+    profitLbl.Size = UDim2.new(1, -110, 0.4, 0)
+    profitLbl.Position = UDim2.new(0, 100, 0, 50)
+    
+    if customSubtext then
+        profitLbl.Text = " " .. customSubtext
+        profitLbl.TextColor3 = customColor or GREEN
+    else
+        if marketVal == 0 then
+            profitLbl.Text = " MARKET: UNKNOWN | PROFIT: N/A"
+            profitLbl.TextColor3 = YELLOW
+        else
+            profitLbl.Text = " MARKET: $" .. formatNumber(marketVal) .. " | PROFIT: $" .. formatNumber(profit)
+            profitLbl.TextColor3 = profit > 0 and GREEN or RED
+        end
+    end
+    
+    profitLbl.Font = Enum.Font.Code
+    profitLbl.TextSize = 18
+    profitLbl.TextXAlignment = Enum.TextXAlignment.Left
+    profitLbl.BackgroundTransparency = 1
+end
+
+_G.JarvisUpdateLists = function()
+    for _, list in pairs({searchList, badProfitsList, dupList, lowTargetsList}) do
+        if list then
+            for _, v in ipairs(list:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+        end
+    end
+    
+    local searchFilter = searchBox.Text:lower()
+    local badProfitsFilter = badProfitsBox.Text:lower()
+    
+    local lowTargetsData = {}
+    local badProfitsData = {}
+    local dupesToRender = {}
+    local exactTracker = {}
+
+    for _, shoe in ipairs(presetSneakers) do
+        local abVal = shoeMaxPrices[shoe.full] or shoe.default or 0
+        local marketVal = marketPrices[shoe.full] or 0
+        local profit = marketVal - abVal
+        
+        local lowerName = shoe.full:lower()
+        local cleanName = string.match(lowerName, "^%s*(.-)%s*$") or lowerName
+        local exactKey = cleanName .. "_" .. tostring(abVal)
+        
+        local isDuplicate = false
+        if exactTracker[exactKey] then 
+            isDuplicate = true 
+        else
+            exactTracker[exactKey] = true
+        end
+        
+        -- DYNAMIC RARITY FILTER LOGIC
+        local itemRarity = shoeRarities[shoe.full] and string.upper(shoeRarities[shoe.full]) or "UNKNOWN"
+        local passesRarity = (currentRarityFilter == "ALL") or (itemRarity == currentRarityFilter)
+        
+        if lowerName:find(searchFilter) and passesRarity then
+            createSearchShoeFrame(searchList, shoe, marketVal, abVal, profit, itemRarity)
+        end
+        
+        if marketVal > 0 and profit <= 0 and lowerName:find(badProfitsFilter) then
+            table.insert(badProfitsData, {shoe = shoe, marketVal = marketVal, profit = profit})
+        end
+        
+        if isDuplicate and not dupesToRender[exactKey] then
+            dupesToRender[exactKey] = shoe
+        end
+        
+        if marketVal > 0 and abVal > 0 and abVal < (marketVal * 0.7) then
+            local missed = marketVal - abVal
+            table.insert(lowTargetsData, {shoe = shoe, marketVal = marketVal, profit = profit, abVal = abVal, missed = missed})
+        end
+    end
+    
+    table.sort(badProfitsData, function(a, b) return a.profit < b.profit end)
+    table.sort(lowTargetsData, function(a, b) return a.missed > b.missed end)
+    
+    local dupCount = 0
+    for _, shoe in pairs(dupesToRender) do
+        createDuplicateShoeFrame(dupList, shoe)
+        dupCount = dupCount + 1
+    end
+
+    for _, data in ipairs(badProfitsData) do
+        createReadOnlyShoeFrame(badProfitsList, data.shoe, data.marketVal, data.profit, nil, RED)
+    end
+    
+    for _, data in ipairs(lowTargetsData) do
+        createReadOnlyShoeFrame(lowTargetsList, data.shoe, data.marketVal, data.profit, "Market: $"..formatNumber(data.marketVal).." | Target: $"..formatNumber(data.abVal).." | Missed potential: $"..formatNumber(data.missed), BLUE)
+    end
+    
+    searchList.CanvasSize = UDim2.new(0, 0, 0, searchLayout.AbsoluteContentSize.Y + 50)
+    badProfitsList.CanvasSize = UDim2.new(0, 0, 0, (#badProfitsData * 110) + 50)
+    dupList.CanvasSize = UDim2.new(0, 0, 0, dupCount * 115)
+    lowTargetsList.CanvasSize = UDim2.new(0, 0, 0, #lowTargetsData * 110)
+end
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(_G.JarvisUpdateLists)
+badProfitsBox:GetPropertyChangedSignal("Text"):Connect(_G.JarvisUpdateLists)
+_G.JarvisUpdateLists()
+--================================================================================
+-- TABLE SHOE SPY, PLAYER HUD, & BEAM TRACER ENGINE
+--================================================================================
+local activeTracerDetails = nil
+
+local function clearTracer()
+    if activeTracerDetails then
+        pcall(function()
+            if activeTracerDetails.att0 then activeTracerDetails.att0:Destroy() end
+            if activeTracerDetails.att1 then activeTracerDetails.att1:Destroy() end
+            if activeTracerDetails.beam then activeTracerDetails.beam:Destroy() end
+        end)
+        activeTracerDetails = nil
+    end
+end
+
+local function createTracer(targetPlayer)
+    clearTracer() -- Ensures we never have double beams
+    
+    local lp = Players.LocalPlayer
+    local lpChar = lp.Character
+    local tpChar = targetPlayer.Character
+    
+    if lpChar and lpChar:FindFirstChild("HumanoidRootPart") and tpChar and tpChar:FindFirstChild("HumanoidRootPart") then
+        local att0 = Instance.new("Attachment")
+        att0.Parent = lpChar.HumanoidRootPart
+        
+        local att1 = Instance.new("Attachment")
+        att1.Parent = tpChar.HumanoidRootPart
+        
+        local beam = Instance.new("Beam")
+        beam.Color = ColorSequence.new(Color3.fromRGB(200, 0, 255)) -- Purple Laser
+        beam.FaceCamera = true
+        beam.Width0 = 0.3
+        beam.Width1 = 0.3
+        beam.LightEmission = 1 -- Makes it glow in the dark
+        beam.Transparency = NumberSequence.new(0.2)
+        beam.Attachment0 = att0
+        beam.Attachment1 = att1
+        beam.Parent = att0
+        
+        activeTracerDetails = {att0 = att0, att1 = att1, beam = beam}
+    end
+end
+
+local function openPlayerMenu(targetPlayer)
+    pcall(function()
+        if gui:FindFirstChild("MainPlayerWindow") then gui.MainPlayerWindow:Destroy() end
+    end)
+    
+    -- FIRE THE LASER TRACER
+    createTracer(targetPlayer)
+
+    local frame = Instance.new("Frame")
+    frame.Name = "MainPlayerWindow"
+    frame.Size = UDim2.new(0, 420, 0, 500)
+    frame.Position = UDim2.new(0.5, 50, 0.5, -250) 
+    frame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = gui
+
+    local stroke = Instance.new("UIStroke", frame)
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(200, 0, 255) 
+
+    local closeBtn = Instance.new("TextButton", frame)
+    closeBtn.Size = UDim2.new(0, 30, 0, 30)
+    closeBtn.Position = UDim2.new(1, -35, 0, 5)
+    closeBtn.Text = "X"
+    closeBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+    closeBtn.TextColor3 = Color3.new(1, 1, 1)
+    closeBtn.Font = Enum.Font.Code
+    closeBtn.TextSize = 20
+    closeBtn.MouseButton1Click:Connect(function() 
+        frame:Destroy() 
+        clearTracer() -- DISABLES THE LASER WHEN YOU CLOSE HUD
+    end)
+
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1, -40, 0, 40)
+    title.Position = UDim2.new(0, 10, 0, 5)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Code
+    title.TextSize = 20
+    title.TextColor3 = Color3.fromRGB(200, 0, 255)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+
+    local ls = targetPlayer:FindFirstChild("leaderstats")
+    local cash = (ls and ls:FindFirstChild("Money")) and ls.Money.Value or 0
+    local inv = targetPlayer:FindFirstChild("Inventory")
+    local unsellable = inv and inv:FindFirstChild("UnsellableInventory")
+
+    local totalShoeValue = 0
+    local shoeList = {}
+
+    if unsellable then
+        for _, item in pairs(unsellable:GetChildren()) do
+            local price = marketPrices[item.Name] or 0
+            local qty = item.Value or 1
+            if qty > 0 then
+                local itemTotal = price * qty
+                totalShoeValue = totalShoeValue + itemTotal
+                table.insert(shoeList, {name = item.Name, qty = qty, price = price, total = itemTotal})
+            end
+        end
+    end
+    
+    -- SORT BY MOST EXPENSIVE UNIT PRICE FIRST
+    table.sort(shoeList, function(a, b) 
+        if a.price == b.price then
+            return a.qty > b.qty 
+        end
+        return a.price > b.price 
+    end)
+
+    title.Text = "👤 " .. targetPlayer.DisplayName:upper() .. " (@" .. targetPlayer.Name .. ")"
+
+    local statsLabel = Instance.new("TextLabel", frame)
+    statsLabel.Size = UDim2.new(1, -20, 0, 75)
+    statsLabel.Position = UDim2.new(0, 10, 0, 45)
+    statsLabel.BackgroundColor3 = Color3.fromRGB(0, 30, 0)
+    statsLabel.Font = Enum.Font.Code
+    statsLabel.TextSize = 16
+    statsLabel.TextColor3 = Color3.fromRGB(0, 255, 70)
+    statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statsLabel.Text = " 💵 LIQUID CASH: $" .. formatNumber(cash) .. "\n 👟 SNEAKER ASSETS: $" .. formatNumber(totalShoeValue) .. "\n 💎 TOTAL NETWORTH: $" .. formatNumber(cash + totalShoeValue)
+    Instance.new("UIStroke", statsLabel).Color = Color3.fromRGB(0, 100, 0)
+
+    local listLabel = Instance.new("TextLabel", frame)
+    listLabel.Size = UDim2.new(1, -20, 0, 20)
+    listLabel.Position = UDim2.new(0, 10, 0, 130)
+    listLabel.BackgroundTransparency = 1
+    listLabel.Font = Enum.Font.Code
+    listLabel.TextSize = 16
+    listLabel.TextColor3 = Color3.new(1, 1, 1)
+    listLabel.Text = "INVENTORY (" .. #shoeList .. " UNIQUE ITEMS):"
+    listLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    local scroll = Instance.new("ScrollingFrame", frame)
+    scroll.Size = UDim2.new(1, -20, 1, -165)
+    scroll.Position = UDim2.new(0, 10, 0, 155)
+    scroll.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    scroll.ScrollBarThickness = 6
+    
+    local layout = Instance.new("UIListLayout", scroll)
+    layout.Padding = UDim.new(0, 5)
+
+    for _, shoe in ipairs(shoeList) do
+        local btn = Instance.new("TextButton", scroll)
+        btn.Size = UDim2.new(1, -10, 0, 40)
+        btn.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        btn.Font = Enum.Font.Code
+        btn.TextSize = 14
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        
+        local marketStr = shoe.price > 0 and "$" .. formatNumber(shoe.price) or "UNKNOWN"
+        btn.Text = " [" .. shoe.qty .. "x] " .. shoe.name .. " | " .. marketStr
+        
+        if shoe.price == 0 then
+            btn.TextColor3 = Color3.fromRGB(150, 150, 150)
+        end
+    end
+    scroll.CanvasSize = UDim2.new(0, 0, 0, #shoeList * 45)
+end
+
+local function openTableMenu(tableModel)
+    pcall(function()
+        if gui:FindFirstChild("MainScannerWindow") then gui.MainScannerWindow:Destroy() end
+        if panels["Scanner"]:FindFirstChild("MainScannerWindow") then panels["Scanner"].MainScannerWindow:Destroy() end
+    end)
+
+    local frame = Instance.new("Frame")
+    frame.Name = "MainScannerWindow"
+    frame.Size = UDim2.new(0, 380, 0, 340)
+    frame.BackgroundColor3 = Color3.fromRGB(10, 15, 20)
+    frame.Active = true
+
+    local stroke = Instance.new("UIStroke", frame)
+    stroke.Thickness = 2
+    stroke.Color = BLUE
+
+    if not main.Visible then
+        frame.Parent = gui
+        frame.Position = UDim2.new(0.5, -190, 0.5, -170)
+        frame.Draggable = true
+        local closeTBtn = Instance.new("TextButton", frame)
+        closeTBtn.Size = UDim2.new(0, 30, 0, 30)
+        closeTBtn.Position = UDim2.new(1, -35, 0, 5)
+        closeTBtn.Text = "X"
+        closeTBtn.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+        closeTBtn.TextColor3 = Color3.new(1, 1, 1)
+        closeTBtn.Font = Enum.Font.Code
+        closeTBtn.TextSize = 20
+        closeTBtn.MouseButton1Click:Connect(function() frame:Destroy() end)
+    else
+        switchTab("Scanner", false)
+        local p = panels["Scanner"]
+        if p:FindFirstChild("ScannerDefaultText") then p.ScannerDefaultText.Visible = false end
+        frame.Parent = p
+        frame.Position = UDim2.new(0.5, -190, 0.5, -170)
+    end
+
+    local title = Instance.new("TextLabel", frame)
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.BackgroundTransparency = 1
+    title.Font = Enum.Font.Code
+    title.TextSize = 18
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.Text = "-- TABLE: " .. tableModel.Name:upper() .. " --"
+    title.TextTruncate = Enum.TextTruncate.AtEnd
+
+    local slotContainer = Instance.new("ScrollingFrame", frame)
+    slotContainer.Size = UDim2.new(1, 0, 1, -40)
+    slotContainer.Position = UDim2.new(0, 0, 0, 40)
+    slotContainer.BackgroundTransparency = 1
+    slotContainer.ScrollBarThickness = 6
+    
+    local intelContainer = Instance.new("Frame", frame)
+    intelContainer.Size = UDim2.new(1, 0, 1, -40)
+    intelContainer.Position = UDim2.new(0, 0, 0, 40)
+    intelContainer.BackgroundTransparency = 1
+    intelContainer.Visible = false
+
+    local intelShoeName = Instance.new("TextLabel", intelContainer)
+    intelShoeName.Size = UDim2.new(1, -20, 0, 30)
+    intelShoeName.Position = UDim2.new(0, 10, 0, 0)
+    intelShoeName.BackgroundTransparency = 1
+    intelShoeName.Font = Enum.Font.Code
+    intelShoeName.TextSize = 16
+    intelShoeName.TextColor3 = BLUE
+    intelShoeName.TextXAlignment = Enum.TextXAlignment.Left
+
+    local intelMarket = Instance.new("TextLabel", intelContainer)
+    intelMarket.Size = UDim2.new(1, -20, 0, 25)
+    intelMarket.Position = UDim2.new(0, 10, 0, 35)
+    intelMarket.BackgroundTransparency = 1
+    intelMarket.Font = Enum.Font.Code
+    intelMarket.TextSize = 16
+    intelMarket.TextColor3 = Color3.new(1, 1, 1)
+    intelMarket.TextXAlignment = Enum.TextXAlignment.Left
+
+    local intelListed = Instance.new("TextLabel", intelContainer)
+    intelListed.Size = UDim2.new(1, -20, 0, 25)
+    intelListed.Position = UDim2.new(0, 10, 0, 60)
+    intelListed.BackgroundTransparency = 1
+    intelListed.Font = Enum.Font.Code
+    intelListed.TextSize = 16
+    intelListed.TextColor3 = Color3.new(1, 1, 1)
+    intelListed.TextXAlignment = Enum.TextXAlignment.Left
+
+    local intelProfit = Instance.new("TextLabel", intelContainer)
+    intelProfit.Size = UDim2.new(1, -20, 0, 25)
+    intelProfit.Position = UDim2.new(0, 10, 0, 85)
+    intelProfit.BackgroundTransparency = 1
+    intelProfit.Font = Enum.Font.Code
+    intelProfit.TextSize = 18
+    intelProfit.TextXAlignment = Enum.TextXAlignment.Left
+
+    local intelPreset = Instance.new("TextLabel", intelContainer)
+    intelPreset.Size = UDim2.new(1, -20, 0, 25)
+    intelPreset.Position = UDim2.new(0, 10, 0, 120)
+    intelPreset.BackgroundTransparency = 1
+    intelPreset.Font = Enum.Font.Code
+    intelPreset.TextSize = 14
+    intelPreset.TextColor3 = Color3.fromRGB(150, 150, 150)
+    intelPreset.TextXAlignment = Enum.TextXAlignment.Left
+
+    local backBtn = Instance.new("TextButton", intelContainer)
+    backBtn.Size = UDim2.new(0, 120, 0, 35)
+    backBtn.Position = UDim2.new(0.5, -60, 1, -45)
+    backBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    backBtn.TextColor3 = Color3.new(1, 1, 1)
+    backBtn.Font = Enum.Font.Code
+    backBtn.TextSize = 16
+    backBtn.Text = "BACK"
+    backBtn.MouseButton1Click:Connect(function()
+        intelContainer.Visible = false
+        slotContainer.Visible = true
+        stroke.Color = BLUE
+    end)
+
+    local validSlots = 0
+    for i = 1, 6 do
+        local display = tableModel:FindFirstChild("DisplaySneaker"..i)
+        local sName, sPrice, isEmpty = "EMPTY SLOT", 0, true
+        if display then
+            local sVal = display:FindFirstChild("SneakerValue")
+            local pVal = display:FindFirstChild("Price")
+            if sVal and pVal and tostring(sVal.Value) ~= "" and tostring(sVal.Value) ~= "None" then
+                sName, sPrice, isEmpty = tostring(sVal.Value), tonumber(pVal.Value) or 0, false
+            end
+        end
+
+        local btn = Instance.new("TextButton", slotContainer)
+        btn.Size = UDim2.new(0.9, 0, 0, 50)
+        btn.Position = UDim2.new(0.05, 0, 0, 5 + ((i-1)*60))
+        btn.Font = Enum.Font.Code
+        btn.TextSize = 15
+        btn.TextWrapped = true
+        
+        if isEmpty then
+            btn.Text = "SLOT " .. i .. ": EMPTY"
+            btn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+            btn.TextColor3 = Color3.fromRGB(100, 100, 100)
+        else
+            btn.Text = "SLOT " .. i .. ": " .. sName .. " [$" .. formatNumber(sPrice) .. "]"
+            btn.BackgroundColor3 = Color3.fromRGB(0, 40, 20)
+            btn.TextColor3 = GREEN
+            Instance.new("UIStroke", btn).Color = Color3.fromRGB(0, 100, 50)
+            
+            btn.MouseButton1Click:Connect(function()
+                slotContainer.Visible = false
+                intelContainer.Visible = true
+                local mktPrice = marketPrices[sName] or 0
+                local abPrice = shoeMaxPrices[sName] or 0
+                intelShoeName.Text = sName
+                intelListed.Text = "Listed At: $" .. formatNumber(sPrice)
+                
+                if mktPrice > 0 then
+                    intelMarket.Text = "Market Price: $" .. formatNumber(mktPrice)
+                    local diff = mktPrice - sPrice
+                    if diff > 0 then
+                        intelProfit.Text = "PROFIT: +$" .. formatNumber(diff)
+                        intelProfit.TextColor3 = GREEN
+                        stroke.Color = GREEN
+                    elseif diff < 0 then
+                        intelProfit.Text = "LOSS: -$" .. formatNumber(math.abs(diff))
+                        intelProfit.TextColor3 = RED
+                        stroke.Color = RED
+                    else
+                        intelProfit.Text = "EXACT MATCH ($0)"
+                        intelProfit.TextColor3 = YELLOW
+                        stroke.Color = YELLOW
+                    end
+                else
+                    intelMarket.Text = "Market Price: UNKNOWN"
+                    intelProfit.Text = "PROFIT: N/A"
+                    intelProfit.TextColor3 = Color3.fromRGB(150, 150, 150)
+                    stroke.Color = Color3.fromRGB(150, 150, 150)
+                end
+                intelPreset.Text = abPrice > 0 and "Autobuy Target: $" .. formatNumber(abPrice) or "Autobuy Target: NONE"
+            end)
+        end
+        validSlots = validSlots + 1
+    end
+
+    -- NEW: VIEW OWNER INVENTORY BUTTON
+    local viewInvBtn = Instance.new("TextButton", slotContainer)
+    viewInvBtn.Size = UDim2.new(0.9, 0, 0, 50)
+    viewInvBtn.Position = UDim2.new(0.05, 0, 0, 5 + (6 * 60))
+    viewInvBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 255) 
+    viewInvBtn.TextColor3 = Color3.new(1, 1, 1)
+    viewInvBtn.Font = Enum.Font.Code
+    viewInvBtn.TextSize = 18
+    viewInvBtn.Text = "👀 VIEW OWNER INVENTORY"
+    Instance.new("UIStroke", viewInvBtn).Color = Color3.fromRGB(200, 0, 255)
+    
+    viewInvBtn.MouseButton1Click:Connect(function()
+        local targetPlayer = nil
+        
+        local ownerVal = tableModel:FindFirstChild("OwnerValue")
+        if ownerVal then
+            if ownerVal:IsA("ObjectValue") and ownerVal.Value then
+                targetPlayer = ownerVal.Value
+            elseif ownerVal:IsA("StringValue") then
+                targetPlayer = Players:FindFirstChild(ownerVal.Value)
+            end
+        end
+        
+        if targetPlayer then
+            openPlayerMenu(targetPlayer)
+        else
+            viewInvBtn.Text = "❌ OWNER NOT FOUND"
+            viewInvBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+            task.wait(1.5)
+            viewInvBtn.Text = "👀 VIEW OWNER INVENTORY"
+            viewInvBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 255)
+        end
+    end)
+    
+    slotContainer.CanvasSize = UDim2.new(0, 0, 0, (6 * 60) + 70)
+end
+
+--================================================================================
+-- MASTER MOUSE CLICK HANDLER (TABLES ONLY)
+--================================================================================
+local scanToggleBtn = Instance.new("TextButton", panels["Scanner"])
+scanToggleBtn.Size = UDim2.new(0, 400, 0, 60)
+scanToggleBtn.Position = UDim2.new(0.5, -200, 0.8, 0)
+scanToggleBtn.Text = "CLICK-TO-SCAN: ON"
+scanToggleBtn.Font = Enum.Font.Code
+scanToggleBtn.TextSize = 25
+scanToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+scanToggleBtn.TextColor3 = GREEN
+local scanToggleStroke = Instance.new("UIStroke", scanToggleBtn)
+scanToggleStroke.Color = Color3.fromRGB(0, 150, 0)
+
+_G.JarvisTableScannerActive = true
+scanToggleBtn.MouseButton1Click:Connect(function()
+    _G.JarvisTableScannerActive = not _G.JarvisTableScannerActive
+    scanToggleBtn.Text = "CLICK-TO-SCAN: " .. (_G.JarvisTableScannerActive and "ON" or "OFF")
+    scanToggleBtn.BackgroundColor3 = _G.JarvisTableScannerActive and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(80, 0, 0)
+    scanToggleBtn.TextColor3 = _G.JarvisTableScannerActive and GREEN or Color3.fromRGB(255, 100, 100)
+    scanToggleStroke.Color = _G.JarvisTableScannerActive and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(150, 0, 0)
+end)
+
+local tablesFolder = Workspace:WaitForChild("Tables", 10)
+mouse.Button1Down:Connect(function()
+    if not _G.JarvisTableScannerActive then return end 
+    local target = mouse.Target
+    if not target then return end 
+    
+    local current = target
+    while current and current ~= game.Workspace do
+        if tablesFolder and current.Parent == tablesFolder then 
+            openTableMenu(current) 
+            break 
+        end
+        current = current.Parent
+    end
+end)
+
+--================================================================================
+-- LIVE MARKET FEED ENGINE (SALES ONLY + 6-SECOND AUTO-CLEANUP)
+--================================================================================
+local liveFeedPanel = panels["Live Feed"]
+local lastSeenListings = {}
+local activeTracking = {} 
+local feedItemsCount = 0
+local playerMoneyCache = {}
+local recentSales = {}
+
+-- THE BRIDGE: Stores active listings globally so the Snipe Webhook can grab the seller!
+_G.LiveListingCache = {} 
+
+-- NEW: 6-Second Garbage Collector (Prevents UI Freezing)
+task.spawn(function()
+    while true do
+        task.wait(0.5) 
+        for _, player in ipairs(Players:GetPlayers()) do
+            local pInfo = player:FindFirstChild("PlayerInfo")
+            if pInfo then
+                for i = 1, 3 do
+                    local display = pInfo:FindFirstChild("DisplaySneaker"..i)
+                    if display then
+                        local sneakerVal, priceVal = tostring(display.Value), tonumber(display:GetAttribute("Price")) or 0
+                        local ownerName = player.Name
+                        local slotKey = ownerName .. "_DisplaySneaker" .. i
+                        local isEmpty = (sneakerVal == "" or sneakerVal == "None" or priceVal == 0)
+                        local currentKey = sneakerVal .. "_" .. tostring(priceVal)
+                        
+                        if isEmpty then
+                            if lastSeenListings[slotKey] then
+                                local trackingData = activeTracking[slotKey]
+                                
+                                -- ✅ TIMER DELETED: We no longer wipe the cache here. 
+                                -- It securely holds the seller's name until the server confirms the sale.
+
+                                if trackingData then
+                                    local oldPrice = trackingData.price
+                                    local expectedProfit = oldPrice * 0.99
+                                    local wasSold = false
+                                    
+                                    if recentSales[ownerName] then
+                                        for j = #recentSales[ownerName], 1, -1 do
+                                            local sale = recentSales[ownerName][j]
+                                            if tick() - sale.time < 5 and math.abs(sale.amount - expectedProfit) <= (oldPrice * 0.02) then
+                                                wasSold = true 
+                                                break
+                                            end
+                                        end
+                                    end
+                                    
+                                    if wasSold then
+                                        createSoldFeedItem(trackingData.shoe, trackingData.price, trackingData.owner)
+                                    end
+                                end
+                                lastSeenListings[slotKey], activeTracking[slotKey] = nil, nil
+                            end
+                        else
+                            if lastSeenListings[slotKey] ~= currentKey then
+                                lastSeenListings[slotKey] = currentKey
+                                activeTracking[slotKey] = {shoe = sneakerVal, price = priceVal, owner = ownerName}
+                                _G.LiveListingCache[currentKey] = ownerName
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+--================================================================================
+-- AUTOBUY TAB & ENGINE
+--================================================================================
+panels["Autobuy"].CanvasSize = UDim2.new(0, 0, 0, 680)
+
+local abActive, snActive = false, false
+local BUY_DELAY = 0.8
+
+local function createSlider(parent, text, min, max, default)
+    local container = Instance.new("Frame", parent)
+    container.Size = UDim2.new(0, 700, 0, 100)
+    container.Position = UDim2.new(0.5, -350, 0, 370)
+    container.BackgroundColor3 = Color3.fromRGB(0, 30, 0)
+
+    local label = Instance.new("TextLabel", container)
+    label.Size = UDim2.new(1, 0, 0, 40)
+    label.Text = text .. ": " .. string.format("%.1f", default) .. "s"
+    label.TextColor3 = GREEN
+    label.Font = Enum.Font.Code
+    label.TextSize = 25
+    label.BackgroundTransparency = 1
+
+    local slideBack = Instance.new("Frame", container)
+    slideBack.Size = UDim2.new(0.8, 0, 0, 10)
+    slideBack.Position = UDim2.new(0.1, 0, 0.7, 0)
+    slideBack.BackgroundColor3 = Color3.fromRGB(0, 60, 0)
+
+    local knob = Instance.new("TextButton", slideBack)
+    knob.Size = UDim2.new(0, 30, 0, 30)
+    knob.AnchorPoint = Vector2.new(0.5, 0.5)
+    knob.Position = UDim2.new((default - min) / (max - min), 0, 0.5, 0)
+    knob.BackgroundColor3 = GREEN
+    knob.Text = ""
+
+    local dragging = false
+    knob.MouseButton1Down:Connect(function() dragging = true end)
+    UIS.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end end)
+
+    RunService.RenderStepped:Connect(function()
+        if dragging then
+            local mousePos = UIS:GetMouseLocation().X
+            local relativePos = math.clamp((mousePos - slideBack.AbsolutePosition.X) / slideBack.AbsoluteSize.X, 0, 1)
+            knob.Position = UDim2.new(relativePos, 0, 0.5, 0)
+            BUY_DELAY = min + (relativePos * (max - min))
+            label.Text = text .. ": " .. string.format("%.1f", BUY_DELAY) .. "s"
+        end
+    end)
+end
+
+createSlider(panels["Autobuy"], "PURCHASE_DELAY", 0, 5, BUY_DELAY)
+
+local abToggleBtn = Instance.new("TextButton", panels["Autobuy"])
+abToggleBtn.Size = UDim2.new(0, 700, 0, 140)
+abToggleBtn.Position = UDim2.new(0.5, -350, 0, 50)
+abToggleBtn.Text = "AUTOBUY_SYSTEM: OFF"
+abToggleBtn.Font = Enum.Font.Code
+abToggleBtn.TextSize = 40
+abToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 20, 0)
+abToggleBtn.TextColor3 = GREEN
+Instance.new("UIStroke", abToggleBtn).Color = Color3.fromRGB(0, 150, 0)
+
+abToggleBtn.MouseButton1Click:Connect(function()
+    abActive = not abActive
+    abToggleBtn.Text = "AUTOBUY_SYSTEM: " .. (abActive and "ON" or "OFF")
+    abToggleBtn.BackgroundColor3 = abActive and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(0, 20, 0)
+end)
+
+local snToggleBtn = Instance.new("TextButton", panels["Autobuy"])
+snToggleBtn.Size = UDim2.new(0, 700, 0, 140)
+snToggleBtn.Position = UDim2.new(0.5, -350, 0, 210)
+snToggleBtn.Text = "$1_SNIPE_ENGINE: OFF"
+snToggleBtn.Font = Enum.Font.Code
+snToggleBtn.TextSize = 40
+snToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 20, 0)
+snToggleBtn.TextColor3 = GREEN
+Instance.new("UIStroke", snToggleBtn).Color = Color3.fromRGB(0, 150, 0)
+
+snToggleBtn.MouseButton1Click:Connect(function()
+    snActive = not snActive
+    snToggleBtn.Text = "$1_SNIPE_ENGINE: " .. (snActive and "ON" or "OFF")
+    snToggleBtn.BackgroundColor3 = snActive and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(0, 20, 0)
+end)
+
+local buyDisplayRemote = ReplicatedStorage:WaitForChild("RemoteEvents"):FindFirstChild("BuyDisplaySneakerEvent")
+local recentBuys = {}
+
+RunService.Heartbeat:Connect(function()
+    if not (abActive or snActive) or not buyDisplayRemote then return end
+    for _, tbl in ipairs(Workspace:FindFirstChild("Tables"):GetChildren()) do
+        for i=1,6 do
+            local display = tbl:FindFirstChild("DisplaySneaker"..i)
+            if display and display:FindFirstChild("SneakerValue") and display:FindFirstChild("Price") then
+                local sneakerValue, price = tostring(display.SneakerValue.Value), tonumber(display.Price.Value)
+                if not price or not sneakerValue then continue end
+                local buyKey = sneakerValue..":"..tostring(price)
+                if recentBuys[buyKey] and tick() - recentBuys[buyKey] < (BUY_DELAY + 2) then continue end
+
+                local validPurchase = false
+                if snActive and price == 1 then validPurchase = true
+                elseif abActive then
+                    local maxPrice = shoeMaxPrices[sneakerValue]
+                    if maxPrice and price <= maxPrice then validPurchase = true end
+                end
+
+                if validPurchase then
+                    recentBuys[buyKey] = tick()
+                    task.spawn(function()
+                        task.wait(BUY_DELAY)
+                        if display:FindFirstChild("Price") and tonumber(display.Price.Value) == price then 
+                            buyDisplayRemote:FireServer(display, sneakerValue, price) 
+                        end
+                    end)
+                end
+            end
+        end
+    end
+end)
+--================================================================================
+-- RESTORE LOGIC & MONITOR TAB
+--================================================================================
+local monPanel = panels["Monitor"]
+monPanel.CanvasSize = UDim2.new(0, 0, 0, 750) 
+local myInfo = LocalPlayer:WaitForChild("PlayerInfo")
+local monitorRemote = ReplicatedStorage:WaitForChild("RemoteEvents"):WaitForChild("ChangeDisplaySneaker")
+local restoreEnabled = true
+
+local mtBtn = Instance.new("TextButton", monPanel)
+mtBtn.Size = UDim2.new(0.95, 0, 0, 60)
+mtBtn.Position = UDim2.new(0.025, 0, 0, 10)
+mtBtn.Text = "PROTECT/RESTORE: ON"
+mtBtn.Font = Enum.Font.Code
+mtBtn.TextSize = 30
+mtBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+mtBtn.TextColor3 = GREEN
+Instance.new("UIStroke", mtBtn).Color = Color3.fromRGB(0, 150, 0)
+
+mtBtn.MouseButton1Click:Connect(function()
+    restoreEnabled = not restoreEnabled
+    mtBtn.Text = "PROTECT/RESTORE: " .. (restoreEnabled and "ON" or "OFF")
+    mtBtn.BackgroundColor3 = restoreEnabled and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(80, 0, 0)
+end)
+
+local clearAllBtn = Instance.new("TextButton", monPanel)
+clearAllBtn.Size = UDim2.new(0.95, 0, 0, 60)
+clearAllBtn.Position = UDim2.new(0.025, 0, 0, 80)
+clearAllBtn.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+clearAllBtn.Text = "EMPTY ALL DISPLAY SLOTS"
+clearAllBtn.Font = Enum.Font.Code
+clearAllBtn.TextSize = 25
+clearAllBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UIStroke", clearAllBtn).Color = Color3.fromRGB(150, 0, 0)
+
+clearAllBtn.MouseButton1Click:Connect(function()
+    for i = 1, 6 do monitorRemote:FireServer("None", "DisplaySneaker"..i, 0) end
+    clearAllBtn.Text = "CLEARED!"
+    task.wait(1)
+    clearAllBtn.Text = "EMPTY ALL DISPLAY SLOTS"
+end)
+
+local smStatusLabels = {}
+for i=1,6 do
+    local statLab = Instance.new("TextLabel", monPanel)
+    statLab.Font = Enum.Font.Code
+    statLab.TextSize = 24
+    statLab.BackgroundTransparency = 0.2
+    statLab.BackgroundColor3 = Color3.fromRGB(0, 20, 0)
+    statLab.TextColor3 = GREEN
+    statLab.TextXAlignment = Enum.TextXAlignment.Left
+    statLab.Size = UDim2.new(0.95, 0, 0, 80)
+    statLab.Position = UDim2.new(0.025, 0, 0, 160 + (i-1)*90)
+    Instance.new("UIStroke", statLab).Color = Color3.fromRGB(0, 100, 0)
+    smStatusLabels[i] = statLab
+end
+
+local reEquipGui = Instance.new("ScreenGui")
+reEquipGui.Name = "SMReEquipPrompt"
+reEquipGui.Enabled = false
+reEquipGui.DisplayOrder = 999
+reEquipGui.ResetOnSpawn = false
+pcall(function() reEquipGui.Parent = game:GetService("CoreGui") end)
+if not reEquipGui.Parent then reEquipGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local mFrame = Instance.new("Frame", reEquipGui)
+mFrame.Size = UDim2.new(0, 450, 0, 320)
+mFrame.Position = UDim2.new(0.5, -225, 0.5, -160)
+mFrame.BackgroundColor3 = Color3.fromRGB(0, 15, 0)
+mFrame.Active = true
+local mStroke = Instance.new("UIStroke", mFrame)
+mStroke.Color = GREEN
+mStroke.Thickness = 2
+
+local ShoeLabel = Instance.new("TextLabel", mFrame)
+ShoeLabel.Size = UDim2.new(1, 0, 0, 80)
+ShoeLabel.TextColor3 = RED
+ShoeLabel.Font = Enum.Font.Code
+ShoeLabel.TextSize = 22
+ShoeLabel.BackgroundTransparency = 1
+
+local PriceBox = Instance.new("TextBox", mFrame)
+PriceBox.Size = UDim2.new(0.8, 0, 0, 45)
+PriceBox.Position = UDim2.new(0.1, 0, 0, 80)
+PriceBox.BackgroundColor3 = Color3.fromRGB(0, 30, 0)
+PriceBox.TextColor3 = GREEN
+PriceBox.Font = Enum.Font.Code
+PriceBox.TextSize = 22
+PriceBox.Text = ""
+
+local ConfirmBox = Instance.new("TextBox", mFrame)
+ConfirmBox.Size = UDim2.new(0.8, 0, 0, 50)
+ConfirmBox.Position = UDim2.new(0.1, 0, 0, 140)
+ConfirmBox.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+ConfirmBox.TextColor3 = Color3.new(1, 1, 1)
+ConfirmBox.Font = Enum.Font.Code
+ConfirmBox.PlaceholderText = "TYPE 'Rome' TO RESTORE"
+ConfirmBox.Text = ""
+ConfirmBox.TextSize = 20
+
+local ConfirmBtn = Instance.new("TextButton", mFrame)
+ConfirmBtn.Size = UDim2.new(0.35, 0, 0, 50)
+ConfirmBtn.Position = UDim2.new(0.1, 0, 0, 230)
+ConfirmBtn.Text = "RESTORE"
+ConfirmBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+ConfirmBtn.TextColor3 = Color3.new(1, 1, 1)
+ConfirmBtn.Font = Enum.Font.Code
+ConfirmBtn.TextSize = 20
+
+local CancelModalBtn = Instance.new("TextButton", mFrame)
+CancelModalBtn.Size = UDim2.new(0.35, 0, 0, 50)
+CancelModalBtn.Position = UDim2.new(0.55, 0, 0, 230)
+CancelModalBtn.Text = "CANCEL"
+CancelModalBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+CancelModalBtn.TextColor3 = Color3.new(1, 1, 1)
+CancelModalBtn.Font = Enum.Font.Code
+CancelModalBtn.TextSize = 20
+
+local pendingPrompt = {nil, nil, nil, nil, nil, nil}
+local restoreConn, cancelConn = nil, nil
+
+local function showRestorePrompt(slotName, shoeName)
+    local initialPrice = shoeMaxPrices[shoeName] or 0 
+    reEquipGui.Enabled = true
+    ShoeLabel.Text = "RESTORING: " .. shoeName
+    PriceBox.Text = formatNumber(initialPrice)
+    ConfirmBox.Text = ""
+    
+    if restoreConn then restoreConn:Disconnect() end
+    if cancelConn then cancelConn:Disconnect() end
+    
+    cancelConn = CancelModalBtn.MouseButton1Click:Connect(function()
+        reEquipGui.Enabled = false
+        local slotNum = tonumber(slotName:match("%d+"))
+        if slotNum then pendingPrompt[slotNum] = nil end
+    end)
+
+    restoreConn = ConfirmBtn.MouseButton1Click:Connect(function()
+        if ConfirmBox.Text == "Rome" then
+            local currentTargetPrice = shoeMaxPrices[shoeName] or 0
+            local inputPrice = cleanInput(PriceBox.Text)
+            local finalPrice = inputPrice > 0 and inputPrice or currentTargetPrice
+            monitorRemote:FireServer(shoeName, slotName, finalPrice)
+            reEquipGui.Enabled = false
+            local slotNum = tonumber(slotName:match("%d+"))
+            if slotNum then pendingPrompt[slotNum] = nil end
+        end
+    end)
+end
+
+RunService.Heartbeat:Connect(function()
+    for i=1,6 do
+        local slotName = "DisplaySneaker"..i
+        local ds = myInfo:FindFirstChild(slotName)
+        local statusText, col, emoji = "EMPTY", GRAY, "📦"
+
+        if ds and ds.Value ~= "" and ds.Value ~= "None" then
+            local name = ds.Value
+            local currentPrice = ds:GetAttribute("Price") or 0
+            local targetMax = shoeMaxPrices[name] or 0
+            
+            if currentPrice >= targetMax then
+                statusText = name .. " [SAFE: $" .. formatNumber(currentPrice) .. "]"
+                col, emoji = GREEN, "✅"
+            else
+                statusText = name .. " [BREACH: $" .. formatNumber(currentPrice) .. "]"
+                col, emoji = RED, "⚠️"
+                if restoreEnabled then
+                    monitorRemote:FireServer("None", slotName, 0)
+                    pendingPrompt[i] = {slotName, name, targetMax}
+                    showRestorePrompt(slotName, name, targetMax)
+                end
+            end
+        else
+            if pendingPrompt[i] and not reEquipGui.Enabled then
+                local sName, sShoe, sPrice = unpack(pendingPrompt[i])
+                showRestorePrompt(sName, sShoe, sPrice)
+            end
+        end
+        if panels["Monitor"].Visible then
+            smStatusLabels[i].Text = emoji .. " SLOT_" .. i .. ": " .. statusText
+            smStatusLabels[i].TextColor3 = col
+        end
+    end
+end)
+
+--================================================================================
+-- NETWORTH TAB
+--================================================================================
+local nwPanel = panels["Networth"]
+
+local nw_searchBox = Instance.new("TextBox", nwPanel)
+nw_searchBox.Size = UDim2.new(0, 300, 0, 45)
+nw_searchBox.Position = UDim2.new(0, 20, 0, 20)
+nw_searchBox.BackgroundColor3 = Color3.fromRGB(0, 30, 0)
+nw_searchBox.TextColor3 = GREEN
+nw_searchBox.PlaceholderText = "> SEARCH_PLAYER..."
+nw_searchBox.Text = ""
+nw_searchBox.Font = Enum.Font.Code
+nw_searchBox.TextSize = 22
+
+local nw_scrollFrame = Instance.new("ScrollingFrame", nwPanel)
+nw_scrollFrame.Size = UDim2.new(0, 300, 0, 240)
+nw_scrollFrame.Position = UDim2.new(0, 20, 0, 80)
+nw_scrollFrame.BackgroundColor3 = Color3.fromRGB(0, 20, 0)
+nw_scrollFrame.ScrollBarThickness = 10
+
+local calcFrame = Instance.new("Frame", nwPanel)
+calcFrame.Size = UDim2.new(0, 300, 0, 160)
+calcFrame.Position = UDim2.new(0, 20, 0, 340)
+calcFrame.BackgroundColor3 = Color3.fromRGB(0, 20, 0)
+
+local calcDisplay = Instance.new("TextBox", calcFrame)
+calcDisplay.Size = UDim2.new(1, -10, 0, 30)
+calcDisplay.Position = UDim2.new(0, 5, 0, 5)
+calcDisplay.BackgroundColor3 = Color3.fromRGB(0, 10, 0)
+calcDisplay.TextColor3 = GREEN
+calcDisplay.Font = Enum.Font.Code
+calcDisplay.TextSize = 18
+calcDisplay.Text = ""
+
+local buttons = {"7","8","9","/","4","5","6","*","1","2","3","-","0",".","=","+"}
+for i, btnText in pairs(buttons) do
+    local btn = Instance.new("TextButton", calcFrame)
+    btn.Size = UDim2.new(0, 70, 0, 25)
+    btn.Position = UDim2.new(0, 5 + ((i-1)%4)*72, 0, 42 + math.floor((i-1)/4)*28)
+    btn.BackgroundColor3 = Color3.fromRGB(0, 40, 0)
+    btn.Text = btnText
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.Font = Enum.Font.Code
+    btn.TextSize = 16
+    btn.MouseButton1Click:Connect(function()
+        if btnText == "=" then
+            local success, result = pcall(function() return loadstring("return " .. calcDisplay.Text)() end)
+            calcDisplay.Text = success and tostring(result) or "ERROR"
+        else calcDisplay.Text = calcDisplay.Text .. btnText end
+    end)
+end
+
+local resultsFrame = Instance.new("Frame", nwPanel)
+resultsFrame.Size = UDim2.new(0, 600, 0, 300)
+resultsFrame.Position = UDim2.new(0, 340, 0, 20)
+resultsFrame.BackgroundColor3 = Color3.fromRGB(0, 20, 0)
+
+local resultsLabel = Instance.new("TextLabel", resultsFrame)
+resultsLabel.Size = UDim2.new(1, -20, 1, -20)
+resultsLabel.Position = UDim2.new(0, 10, 0, 10)
+resultsLabel.BackgroundTransparency = 1
+resultsLabel.TextColor3 = GREEN
+resultsLabel.Font = Enum.Font.Code
+resultsLabel.TextSize = 20
+resultsLabel.TextXAlignment = Enum.TextXAlignment.Left
+resultsLabel.TextYAlignment = Enum.TextYAlignment.Top
+resultsLabel.Text = "SYSTEM READY.\nSELECT A PLAYER TO BEGIN SCAN."
+resultsLabel.TextWrapped = true
+
+local viewSkippedButton = Instance.new("TextButton", nwPanel)
+viewSkippedButton.Size = UDim2.new(0, 290, 0, 60)
+viewSkippedButton.Position = UDim2.new(0, 650, 0, 340)
+viewSkippedButton.BackgroundColor3 = Color3.fromRGB(100, 50, 0)
+viewSkippedButton.Text = "VIEW SKIPPED ITEMS"
+viewSkippedButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+viewSkippedButton.Font = Enum.Font.Code
+viewSkippedButton.TextSize = 20
+viewSkippedButton.Visible = false
+
+local nw_backButton = Instance.new("TextButton", nwPanel)
+nw_backButton.Size = UDim2.new(0, 290, 0, 60)
+nw_backButton.Position = UDim2.new(0, 650, 0, 340)
+nw_backButton.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+nw_backButton.Text = "BACK TO SCAN"
+nw_backButton.TextColor3 = Color3.new(1,1,1)
+nw_backButton.Font = Enum.Font.Code
+nw_backButton.TextSize = 20
+nw_backButton.Visible = false
+
+local selectedPlayerName, lastSkippedItems, lastScanResultText = nil, {}, ""
+
+local function getPlayerNetworth(p)
+    local ls = p:FindFirstChild("leaderstats")
+    local cash = (ls and ls:FindFirstChild("Money")) and ls.Money.Value or 0
+    local inv = p:FindFirstChild("Inventory")
+    local unsellable = inv and inv:FindFirstChild("UnsellableInventory")
+    local shoeValue = 0
+    if unsellable then
+        for _, item in pairs(unsellable:GetChildren()) do
+            if marketPrices[item.Name] then shoeValue = shoeValue + (marketPrices[item.Name] * (item.Value or 1)) end
+        end
+    end
+    return cash + shoeValue
+end
+
+local function performScan(targetPlayerName)
+    local targetPlayer = Players:FindFirstChild(targetPlayerName)
+    if not targetPlayer then return end
+    selectedPlayerName = targetPlayerName
+    viewSkippedButton.Visible, nw_backButton.Visible = false, false
+    lastSkippedItems = {}
+    resultsLabel.Text = "CONNECTING TO " .. targetPlayer.Name .. "'S DATA...\n"
+
+    local inventory = targetPlayer:WaitForChild("Inventory", 2)
+    local unsellable = inventory and inventory:WaitForChild("UnsellableInventory", 2)
+    local moneyFolder = targetPlayer:WaitForChild("leaderstats", 2)
+    local money = moneyFolder and moneyFolder:WaitForChild("Money", 2)
+
+    if not unsellable or not money then resultsLabel.Text = "[ERROR] INVENTORY STRUCTURE INCORRECT." return end
+    local totalSneakerValue = 0
+
+    resultsLabel.Text = resultsLabel.Text .. "CALCULATING...\n"
+    for _, item in pairs(unsellable:GetChildren()) do
+        local price = marketPrices[item.Name]
+        if price then totalSneakerValue = totalSneakerValue + (price * item.Value)
+        else table.insert(lastSkippedItems, {name = item.Name, qty = item.Value or 1}) end
+    end
+
+    resultsLabel.Text = "RESULTS FOR @" .. targetPlayer.Name .. "\n\nSNEAKER WORTH: $" .. formatNumber(totalSneakerValue) .. "\nCASH: $" .. formatNumber(money.Value) .. "\n-----------------------------\nTOTAL WORTH: $" .. formatNumber(totalSneakerValue + money.Value) .. "\n\nSKIPPED: " .. #lastSkippedItems .. " ITEMS"
+    if #lastSkippedItems > 0 then
+        viewSkippedButton.Visible = true
+        viewSkippedButton.Text = "VIEW SKIPPED (" .. #lastSkippedItems .. ")"
+    end
+end
+
+local function updateDropdown()
+    for _, child in pairs(nw_scrollFrame:GetChildren()) do if child:IsA("TextButton") then child:Destroy() end end
+    local text = string.lower(nw_searchBox.Text)
+    local filteredPlayers = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if string.find(string.lower(p.Name), text) or string.find(string.lower(p.DisplayName), text) then table.insert(filteredPlayers, p) end
+    end
+    
+    table.sort(filteredPlayers, function(a, b)
+        return getPlayerNetworth(a) > getPlayerNetworth(b)
+    end)
+    
+    for i, p in pairs(filteredPlayers) do
+        local btn = Instance.new("TextButton", nw_scrollFrame)
+        btn.Size = UDim2.new(1, -10, 0, 35)
+        btn.Position = UDim2.new(0, 5, 0, (i-1) * 40)
+        btn.BackgroundColor3 = Color3.fromRGB(0, 40, 0)
+        btn.Text = p.DisplayName .. " (@" .. p.Name .. ")"
+        btn.TextColor3 = GREEN
+        btn.Font = Enum.Font.Code
+        btn.TextSize = 16
+        btn.MouseButton1Click:Connect(function()
+            performScan(p.Name)
+        end)
+    end
+    nw_scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #filteredPlayers * 40)
+    
+    if #filteredPlayers > 0 and text == "" then
+        performScan(filteredPlayers[1].Name)
+    end
+end
+
+nw_backButton.MouseButton1Click:Connect(function()
+    resultsLabel.Text = lastScanResultText
+    nw_backButton.Visible, viewSkippedButton.Visible = false, true
+end)
+
+viewSkippedButton.MouseButton1Click:Connect(function()
+    if #lastSkippedItems == 0 then return end
+    lastScanResultText = resultsLabel.Text
+    local text = "SKIPPED ITEMS (NO MARKET DATA):\n\n"
+    for _, skipData in pairs(lastSkippedItems) do text = text .. "- " .. formatNumber(skipData.qty) .. "x " .. skipData.name .. "\n" end
+    resultsLabel.Text = text
+    viewSkippedButton.Visible, nw_backButton.Visible = false, true
+end)
+
+nw_searchBox:GetPropertyChangedSignal("Text"):Connect(updateDropdown)
+Players.PlayerAdded:Connect(updateDropdown)
+Players.PlayerRemoving:Connect(updateDropdown)
+updateDropdown()
+
+--================================================================================
+-- USD CALCULATOR INTEGRATION (REPLACED MARKET TRENDS)
+--================================================================================
+local calcUSD = function(val) return (val / 1000000) * 0.5 end
+
+local calcTitle = Instance.new("TextLabel", nwPanel)
+calcTitle.Size = UDim2.new(0, 600, 0, 30)
+calcTitle.Position = UDim2.new(0, 340, 0, 420)
+calcTitle.BackgroundTransparency = 1
+calcTitle.Text = "USD CALCULATOR [ RATE: 1M IN-GAME = $0.5 USD ]"
+calcTitle.TextColor3 = BLUE
+calcTitle.Font = Enum.Font.Code
+calcTitle.TextSize = 22
+calcTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+local currentNwLbl = Instance.new("TextLabel", nwPanel)
+currentNwLbl.Size = UDim2.new(0, 600, 0, 40)
+currentNwLbl.Position = UDim2.new(0, 340, 0, 460)
+currentNwLbl.BackgroundColor3 = Color3.fromRGB(0, 30, 0)
+currentNwLbl.Text = "LOADING YOUR CURRENT NET WORTH..."
+currentNwLbl.TextColor3 = GREEN
+currentNwLbl.Font = Enum.Font.Code
+currentNwLbl.TextSize = 18
+Instance.new("UIStroke", currentNwLbl).Color = Color3.fromRGB(0, 150, 0)
+
+local customCalcBox = Instance.new("TextBox", nwPanel)
+customCalcBox.Size = UDim2.new(0, 290, 0, 50)
+customCalcBox.Position = UDim2.new(0, 340, 0, 510)
+customCalcBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+customCalcBox.PlaceholderText = "ENTER CUSTOM IN-GAME AMOUNT..."
+customCalcBox.Text = ""
+customCalcBox.TextColor3 = Color3.new(1, 1, 1)
+customCalcBox.Font = Enum.Font.Code
+customCalcBox.TextSize = 16
+Instance.new("UIStroke", customCalcBox).Color = BLUE
+
+local customCalcResult = Instance.new("TextLabel", nwPanel)
+customCalcResult.Size = UDim2.new(0, 290, 0, 50)
+customCalcResult.Position = UDim2.new(0, 650, 0, 510)
+customCalcResult.BackgroundColor3 = Color3.fromRGB(0, 40, 0)
+customCalcResult.Text = "USD VALUE: $0.00"
+customCalcResult.TextColor3 = GREEN
+customCalcResult.Font = Enum.Font.Code
+customCalcResult.TextSize = 22
+Instance.new("UIStroke", customCalcResult).Color = GREEN
+
+customCalcBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local val = cleanInput(customCalcBox.Text)
+    customCalcResult.Text = "USD VALUE: $" .. string.format("%.2f", calcUSD(val))
+end)
+
+task.spawn(function()
+    while task.wait(5) do
+        local inv = LocalPlayer:FindFirstChild("Inventory")
+        local ls = LocalPlayer:FindFirstChild("leaderstats")
+        if inv and ls then
+            local unsellable = inv:FindFirstChild("UnsellableInventory")
+            local money = ls:FindFirstChild("Money")
+            if unsellable and money then
+                local total = money.Value
+                for _, item in pairs(unsellable:GetChildren()) do
+                    if marketPrices[item.Name] then total = total + (marketPrices[item.Name] * item.Value) end
+                end
+                currentNwLbl.Text = " YOUR NET WORTH: $" .. formatNumber(total) .. " IN-GAME  ||  $" .. string.format("%.2f", calcUSD(total)) .. " USD"
+            end
+        end
+    end
+end)
+
+--================================================================================
+-- MANUAL VAULT / NETWORTH SEND BUTTON
+--================================================================================
+local manualVaultBtn = Instance.new("TextButton", panels["Networth"])
+manualVaultBtn.Size = UDim2.new(0, 300, 0, 50)
+manualVaultBtn.Position = UDim2.new(0, 20, 0, 520) 
+manualVaultBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
+manualVaultBtn.Text = "SEND VAULT TO DISCORD"
+manualVaultBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+manualVaultBtn.Font = Enum.Font.Code
+manualVaultBtn.TextSize = 22
+Instance.new("UIStroke", manualVaultBtn).Color = Color3.fromRGB(0, 100, 255)
+
+local function formatSuffix(numStr)
+    local cleanStr = string.gsub(numStr, "[$,]", "")
+    local num = tonumber(cleanStr)
+    if not num then return numStr end
+    
+    if num >= 1000000000000000 then
+        return "$" .. string.format("%.1fQ", num / 1000000000000000)
+    elseif num >= 1000000000000 then
+        return "$" .. string.format("%.1fT", num / 1000000000000)
+    elseif num >= 1000000000 then
+        return "$" .. string.format("%.1fB", num / 1000000000)
+    elseif num >= 1000000 then
+        return "$" .. string.format("%.1fM", num / 1000000)
+    elseif num >= 1000 then
+        return "$" .. string.format("%.1fK", num / 1000)
+    else
+        return "$" .. tostring(math.floor(num))
+    end
+end
+
+local vaultCooldown = false
+manualVaultBtn.MouseButton1Click:Connect(function()
+    if vaultCooldown then return end
+    
+    local currentText = resultsLabel.Text
+    
+    if currentText == "" or string.find(currentText, "SYSTEM READY") then 
+        manualVaultBtn.Text = "SCAN A PLAYER FIRST!"
+        manualVaultBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+        task.wait(1.5)
+        manualVaultBtn.Text = "SEND VAULT TO DISCORD"
+        manualVaultBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
+        return 
+    end 
+    
+    vaultCooldown = true
+    manualVaultBtn.Text = "SENDING TO WEBHOOK..."
+    manualVaultBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 0)
+    
+    task.spawn(function()
+        local rawSneaker = string.match(currentText, "SNEAKER WORTH:%s*(%$[%d%,]+)") or "$0"
+        local rawCash = string.match(currentText, "CASH:%s*(%$[%d%,]+)") or "$0"
+        local rawTotal = string.match(currentText, "TOTAL WORTH:%s*(%$[%d%,]+)") or "$0"
+        
+        local formattedDescription = "# 💵 Cash: " .. formatSuffix(rawCash) .. "\n" ..
+                                     "# 👟 Sneaker Worth: " .. formatSuffix(rawSneaker) .. "\n\n" ..
+                                     "# 💎 Total Networth: " .. formatSuffix(rawTotal)
+
+        sendWebhook("📊 Daily Networth Update", formattedDescription, 3447003)
+        
+        task.wait(1.5) 
+        manualVaultBtn.Text = "VAULT SENT!"
+        manualVaultBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+        task.wait(2)
+        manualVaultBtn.Text = "SEND VAULT TO DISCORD"
+        manualVaultBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
+        vaultCooldown = false
+    end)
+end)
+
+--================================================================================
+-- INVENTORY V4 TAB
+--================================================================================
+local invPanel = panels["Inventory"]
+local invLayout = Instance.new("UIListLayout", invPanel)
+invLayout.Padding = UDim.new(0, 10)
+
+local invModal = Instance.new("Frame", main)
+invModal.Name = "InvModal"
+invModal.Size = UDim2.new(0.95, 0, 0.72, 0)
+invModal.Position = UDim2.new(0.025, 0, 0.25, 0)
+invModal.BackgroundColor3 = Color3.fromRGB(5, 10, 5)
+invModal.Visible = false
+invModal.ZIndex = 50
+
+local shoeTitle = Instance.new("TextLabel", invModal)
+shoeTitle.Size = UDim2.new(0.9, 0, 0, 50)
+shoeTitle.Position = UDim2.new(0.05, 0, 0, 20)
+shoeTitle.Font = Enum.Font.Code
+shoeTitle.TextSize = 28
+shoeTitle.TextColor3 = Color3.new(0, 1, 0.8)
+shoeTitle.BackgroundTransparency = 1
+shoeTitle.ZIndex = 51
+
+local setPriceBox = Instance.new("TextBox", invModal)
+setPriceBox.Size = UDim2.new(0.42, 0, 0, 50)
+setPriceBox.Position = UDim2.new(0.05, 0, 0, 100)
+setPriceBox.PlaceholderText = "SET PRICE..."
+setPriceBox.Text = ""
+setPriceBox.Font = Enum.Font.Code
+setPriceBox.TextSize = 22
+setPriceBox.BackgroundColor3 = Color3.new(0,0,0)
+setPriceBox.TextColor3 = Color3.new(1,1,1)
+setPriceBox.ZIndex = 51
+
+local quickPrice = Instance.new("TextButton", invModal)
+quickPrice.Size = UDim2.new(0.42, 0, 0, 50)
+quickPrice.Position = UDim2.new(0.53, 0, 0, 100)
+quickPrice.BackgroundColor3 = Color3.fromRGB(30, 45, 75)
+quickPrice.Text = "MAX: 999,999,999,999"
+quickPrice.Font = Enum.Font.Code
+quickPrice.TextSize = 16
+quickPrice.TextColor3 = Color3.new(1,1,1)
+quickPrice.ZIndex = 51
+quickPrice.MouseButton1Click:Connect(function() setPriceBox.Text = "999,999,999,999" end)
+
+local slotContainer = Instance.new("Frame", invModal)
+slotContainer.Size = UDim2.new(0.9, 0, 0, 60)
+slotContainer.Position = UDim2.new(0.05, 0, 0, 180)
+slotContainer.BackgroundTransparency = 1
+slotContainer.ZIndex = 51
+
+local slotBtns = {}
+for i = 1, 6 do
+    local b = Instance.new("TextButton", slotContainer)
+    b.Size = UDim2.new(0.16, 0, 1, 0)
+    b.Position = UDim2.new((i-1)*0.168, 0, 0, 0)
+    b.Text = "S"..i
+    b.Font = Enum.Font.Code
+    b.TextSize = 18
+    b.BackgroundColor3 = Color3.fromRGB(25, 35, 55)
+    b.TextColor3 = Color3.new(1,1,1)
+    b.ZIndex = 52
+    b.MouseButton1Click:Connect(function()
+        _G.JarvisSelectedSlot = i
+        for _, other in pairs(slotBtns) do other.BackgroundColor3 = Color3.fromRGB(25, 35, 55) end
+        b.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
+    end)
+    slotBtns[i] = b
+end
+
+local passBox = Instance.new("TextBox", invModal)
+passBox.Size = UDim2.new(0.42, 0, 0, 50)
+passBox.Position = UDim2.new(0.05, 0, 0, 270)
+passBox.PlaceholderText = "PASS: Rome"
+passBox.Text = ""
+passBox.Font = Enum.Font.Code
+passBox.TextSize = 22
+passBox.BackgroundColor3 = Color3.new(0.05, 0.05, 0.1)
+passBox.TextColor3 = Color3.fromRGB(255, 200, 0)
+passBox.ZIndex = 51
+
+local confirmListing = Instance.new("TextButton", invModal)
+confirmListing.Size = UDim2.new(0.42, 0, 0, 50)
+confirmListing.Position = UDim2.new(0.53, 0, 0, 270)
+confirmListing.Text = "CONFIRM LISTING"
+confirmListing.Font = Enum.Font.Code
+confirmListing.TextSize = 20
+confirmListing.BackgroundColor3 = Color3.fromRGB(0, 160, 80)
+confirmListing.TextColor3 = Color3.new(1,1,1)
+confirmListing.ZIndex = 51
+
+local backToWarehouse = Instance.new("TextButton", invModal)
+backToWarehouse.Size = UDim2.new(0.9, 0, 0, 50)
+backToWarehouse.Position = UDim2.new(0.05, 0, 0, 350)
+backToWarehouse.Text = "BACK TO WAREHOUSE"
+backToWarehouse.Font = Enum.Font.Code
+backToWarehouse.TextSize = 20
+backToWarehouse.TextColor3 = Color3.new(1,1,1)
+backToWarehouse.BackgroundColor3 = Color3.fromRGB(40,40,40)
+backToWarehouse.ZIndex = 51
+
+local function updateWarehouse()
+    for _, v in pairs(invPanel:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
+    local items = warehouseFolder:GetChildren()
+    table.sort(items, function(a, b) return a.Name < b.Name end)
+    
+    for i, item in ipairs(items) do
+        local b = Instance.new("TextButton", invPanel)
+        b.Size = UDim2.new(1, -15, 0, 65)
+        b.BackgroundColor3 = Color3.fromRGB(0, 30, 0)
+        b.Text = "" 
+        
+        local img = Instance.new("ImageLabel", b)
+        img.Size = UDim2.new(0, 55, 0, 55)
+        img.Position = UDim2.new(0, 5, 0, 5)
+        img.BackgroundTransparency = 1
+        img.ScaleType = Enum.ScaleType.Fit
+        
+        local frame = gameInvGui:FindFirstChild(item.Name)
+        if frame and frame:FindFirstChild("SneakerImage") then img.Image = frame.SneakerImage.Image else img.Image = "" end
+
+        local txt = Instance.new("TextLabel", b)
+        txt.Size = UDim2.new(1, -70, 1, 0)
+        txt.Position = UDim2.new(0, 65, 0, 0)
+        txt.BackgroundTransparency = 1
+        txt.Text = item.Name .. " (x" .. formatNumber(item.Value) .. ")"
+        txt.TextColor3 = GREEN
+        txt.Font = Enum.Font.Code
+        txt.TextSize = 20
+        txt.TextXAlignment = Enum.TextXAlignment.Left
+        
+        b.MouseButton1Click:Connect(function()
+            _G.JarvisSelectedShoe = item.Name
+            _G.JarvisSelectedSlot = 0
+            shoeTitle.Text = item.Name
+            setPriceBox.Text = ""
+            passBox.Text = ""
+            for _, btn in pairs(slotBtns) do btn.BackgroundColor3 = Color3.fromRGB(25, 35, 55) end
+            invModal.Visible = true
+        end)
+    end
+    invPanel.CanvasSize = UDim2.new(0, 0, 0, #items * 75)
+end
+
+warehouseFolder.ChildAdded:Connect(updateWarehouse)
+warehouseFolder.ChildRemoved:Connect(updateWarehouse)
+updateWarehouse()
+
+backToWarehouse.MouseButton1Click:Connect(function() invModal.Visible = false end)
+
+confirmListing.MouseButton1Click:Connect(function()
+    if passBox.Text ~= "Rome" then 
+        confirmListing.Text = "WRONG PASS"
+        task.wait(1)
+        confirmListing.Text = "CONFIRM LISTING"
+        return 
+    end
+    local p = cleanInput(setPriceBox.Text)
+    if p and _G.JarvisSelectedSlot and _G.JarvisSelectedSlot > 0 then
+        monitorRemote:FireServer(_G.JarvisSelectedShoe, "DisplaySneaker".._G.JarvisSelectedSlot, p)
+        confirmListing.Text = "SUCCESS!"
+        task.wait(1)
+        invModal.Visible = false
+        confirmListing.Text = "CONFIRM LISTING"
+    else
+        confirmListing.Text = "SELECT SLOT & PRICE"
+        task.wait(1)
+        confirmListing.Text = "CONFIRM LISTING"
+    end
+end)
+--================================================================================
+-- CHAT SNIPE MONITOR, IMAGE CACHE & WEBHOOK ENGINE (COMPLETE & FIXED)
+--================================================================================
+do
+    -- THE WEBHOOK URL (RE-ADDED DIRECTLY INTO BLOCK)
+    local SNIPE_WEBHOOK_URL = "https://discord.com/api/webhooks/1482672969305161891/wK-ABDAq1Idrzg20o0OQ3SH81tgU7h8dTZLQskAxCatq_Xc3nMHphzKK2U27jidd5_pZ"
+    local recentSnipes = {}
+
+-- 2. THE WEBHOOK SENDER
+    local function sendSnipeWebhook(shoeName, priceStr, sellerUsername)
+        if SNIPE_WEBHOOK_URL == "" then return end
+        
+        local spentNum = cleanInput(priceStr)
+        local mktPrice = marketPrices[shoeName] or 0
+        local profit = mktPrice - spentNum
+        
+        local sellerFinalName = "Unknown"
+        if sellerUsername and sellerUsername ~= "" then
+            local p = Players:FindFirstChild(sellerUsername)
+            if p then
+                sellerFinalName = p.DisplayName .. " (@" .. p.Name .. ")"
+            else
+                sellerFinalName = "@" .. sellerUsername
+            end
+        end
+        
+        local embedData = {
+            ["title"] = "🎯 SNEAKER SNIPED!",
+            ["description"] = "**Executive:** `" .. LocalPlayer.DisplayName .. "`\n**Seller:** `" .. sellerFinalName .. "`\n**Asset Acquired:** `" .. shoeName .. "`\n**Capital Spent:** `$" .. formatNumber(spentNum) .. "`\n**Market Value:** `$" .. formatNumber(mktPrice) .. "`\n**Est. Profit:** `$" .. (profit >= 0 and "+" or "-") .. formatNumber(math.abs(profit)) .. "`",
+            ["color"] = 11665663,
+            ["footer"] = {["text"] = "Sterling Enterprise • " .. os.date("%Y-%m-%d %I:%M:%S %p")}
+        }
+        
+        local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+        if not req then return end
+        
+        task.spawn(function()
+            local imageUrl = getDirectShoeImage(shoeName)
+            if imageUrl then embedData["thumbnail"] = {["url"] = imageUrl} end
+            
+            pcall(function()
+                req({
+                    Url = SNIPE_WEBHOOK_URL,
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = HttpService:JSONEncode({["embeds"] = {embedData}})
+                })
+            end)
+        end)
+    end
+
+    -- 3. THE CHAT MONITOR (WITH SAFE CACHE DELETION)
+    local function onChatMessage(rawMessage)
+        local cleanMessage = string.gsub(rawMessage, "<[^>]+>", "") 
+        local who, shoe, price, sellerUser = string.match(cleanMessage, "(%S+) has bought the (.-) for (%S+) from (%S+)")
+        
+        if not who then 
+            who, shoe, price = string.match(cleanMessage, "(%S+) has bought the (.-) for (%S+)") 
+        end
+        
+        if who and shoe and price then
+            local cleanPriceNum = cleanInput(price)
+            local searchKey = shoe .. "_" .. tostring(cleanPriceNum)
+            
+            _G.RecentBuyers = _G.RecentBuyers or {}
+            _G.RecentBuyers[searchKey] = who
+
+            if not sellerUser or sellerUser == "" then
+                if _G.LiveListingCache then
+                    sellerUser = _G.LiveListingCache[searchKey]
+                end
+            end
+
+            if string.find(who, LocalPlayer.Name) or string.find(who, LocalPlayer.DisplayName) then
+                sendSnipeWebhook(shoe, price, sellerUser)
+            end
+            
+            -- 🛑 NEW SAFE CACHE DELETION: Wipes memory ONLY after sale is confirmed!
+            if _G.LiveListingCache and _G.LiveListingCache[searchKey] then
+                _G.LiveListingCache[searchKey] = nil
+            end
+        end
+    end
+
+    local chatEvents = ReplicatedStorage:WaitForChild("DefaultChatSystemChatEvents", 5)
+    if chatEvents and chatEvents:FindFirstChild("OnMessageDoneFiltering") then
+        chatEvents.OnMessageDoneFiltering.OnClientEvent:Connect(function(messageData)
+            if messageData.Message then onChatMessage(messageData.Message) end
+        end)
+    end
+
+    local TextChatService = game:GetService("TextChatService")
+    TextChatService.MessageReceived:Connect(function(textChatMessage)
+        if textChatMessage.Text then onChatMessage(textChatMessage.Text) end
+    end)
+end
+--================================================================================
+-- LIVE CHAT CONSOLE (ENDLESS HISTORY DISCORD PATCHING)
+--================================================================================
+local CHAT_WEBHOOK_URL = "https://discord.com/api/webhooks/1486744529469050941/WN-6PU54sINqFys4xoS0DLVeVolv8b9_5kYQz2_8Odn8NAxgcE923Pdt5r2-N4FZ07Fi"
+local consoleMessageId = nil
+local chatHistory = {}
+local lastLoggedMessage = ""
+local MAX_CHAT_LINES = 40 -- Increased capacity! 
+
+local function updateChatConsole(speaker, message)
+    if CHAT_WEBHOOK_URL == "" then return end
+    
+    local cleanMsg = string.gsub(message, "<[^>]+>", "")
+    local logString = "**" .. speaker .. ":** " .. cleanMsg
+    
+    -- Prevent duplicate messages from dual-chat engines
+    if logString == lastLoggedMessage then return end
+    lastLoggedMessage = logString
+    
+    local timeStr = os.date("%I:%M:%S %p")
+    table.insert(chatHistory, "`[" .. timeStr .. "]` " .. logString)
+    
+    local fullText = table.concat(chatHistory, "\n")
+    
+    -- Trigger a new message block if we hit 40 lines OR get dangerously close to Discord's 4,096 character limit
+    local hitLimit = false
+    if #chatHistory >= MAX_CHAT_LINES or string.len(fullText) > 3800 then
+        hitLimit = true
+    end
+    
+    local data = {
+        ["embeds"] = {{
+            ["title"] = "🖥️ STERLING ENTERPRISE : SERVER CHAT",
+            ["description"] = fullText,
+            ["color"] = 3447003, -- Blue
+            ["footer"] = {["text"] = "Sterling Live Console • Auto-Updating"}
+        }}
+    }
+    
+    local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    if not req then return end
+    
+    task.spawn(function()
+        if not consoleMessageId then
+            -- Post a brand new message block
+            local res = req({
+                Url = CHAT_WEBHOOK_URL .. "?wait=true",
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(data)
+            })
+            if res and res.Body then
+                local success, decoded = pcall(function() return HttpService:JSONDecode(res.Body) end)
+                if success and decoded and decoded.id then
+                    consoleMessageId = decoded.id
+                end
+            end
+        else
+            -- Update the existing message block
+            req({
+                Url = CHAT_WEBHOOK_URL .. "/messages/" .. consoleMessageId,
+                Method = "PATCH",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(data)
+            })
+        end
+        
+        -- If this update maxed out the block, wipe the slate clean so the next chat starts a new message
+        if hitLimit then
+            consoleMessageId = nil
+            chatHistory = {}
+        end
+    end)
+end
+
+-- Safely track when any player chats
+local function setupPlayerChat(player)
+    player.Chatted:Connect(function(msg)
+        updateChatConsole(player.Name, msg)
+    end)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do setupPlayerChat(p) end
+Players.PlayerAdded:Connect(setupPlayerChat)
+--================================================================================
+-- IMAGE CACHE & BULLETPROOF INDEX EXTRACTOR (MOVED TO TOP TO PREVENT NIL ERRORS)
+--================================================================================
+local indexFrame = LocalPlayer:WaitForChild("PlayerGui"):WaitForChild("MainScreenGui"):WaitForChild("IndexFrame"):WaitForChild("ScrollingFrame")
+local directUrlCache = {}
+
+local function getDirectShoeImage(shoeName)
+    if directUrlCache[shoeName] then return directUrlCache[shoeName] end
+    local imageId = "0"
+    
+    local function extractId(imgStr)
+        if not imgStr or imgStr == "" then return nil end
+        local id = string.match(imgStr, "id=(%d+)")
+        if not id then id = string.match(imgStr, "%d+") end
+        if id and tonumber(id) > 10000 then return id end
+        return nil
+    end
+    
+    local shoeFrame = indexFrame:FindFirstChild(shoeName)
+    if shoeFrame then
+        if shoeFrame:IsA("ImageLabel") or shoeFrame:IsA("ImageButton") then
+            imageId = extractId(shoeFrame.Image) or "0"
+        end
+        if imageId == "0" then
+            for _, desc in ipairs(shoeFrame:GetDescendants()) do
+                if desc.Name ~= "IndexStar" and (desc:IsA("ImageLabel") or desc:IsA("ImageButton")) then
+                    local foundId = extractId(desc.Image)
+                    if foundId then imageId = foundId break end
+                end
+            end
+        end
+    end
+    
+    if imageId == "0" then
+        local invFrame = gameInvGui:FindFirstChild(shoeName)
+        if invFrame then 
+            if invFrame:IsA("ImageLabel") or invFrame:IsA("ImageButton") then
+                imageId = extractId(invFrame.Image) or "0"
+            end
+            if imageId == "0" then
+                for _, desc in ipairs(invFrame:GetDescendants()) do
+                    if desc.Name ~= "IndexStar" and (desc:IsA("ImageLabel") or desc:IsA("ImageButton")) then
+                        local foundId = extractId(desc.Image)
+                        if foundId then imageId = foundId break end
+                    end
+                end
+            end
+        end
+    end
+    
+    if not imageId or imageId == "0" then return nil end
+    
+    local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    if not req then return nil end
+    
+    local url = "https://thumbnails.roblox.com/v1/assets?assetIds=" .. imageId .. "&returnPolicy=PlaceHolder&size=420x420&format=Png&isCircular=false"
+    local success, res = pcall(function() return req({Url = url, Method = "GET"}) end)
+    
+    if not success or (res and res.StatusCode ~= 200) then
+        url = "https://thumbnails.roproxy.com/v1/assets?assetIds=" .. imageId .. "&returnPolicy=PlaceHolder&size=420x420&format=Png&isCircular=false"
+        success, res = pcall(function() return req({Url = url, Method = "GET"}) end)
+    end
+    
+    if success and res and res.Body then
+        local suc, decoded = pcall(function() return HttpService:JSONDecode(res.Body) end)
+        if suc and decoded and decoded.data and decoded.data[1] and decoded.data[1].imageUrl then
+            local finalUrl = decoded.data[1].imageUrl
+            directUrlCache[shoeName] = finalUrl
+            return finalUrl
+        end
+    end
+    return nil
+end
+
+--================================================================================
+-- CHAT SNIPE MONITOR & WEBHOOK ENGINE (SMART CACHE & WAIT LOOP)
+--================================================================================
+local SNIPE_WEBHOOK_URL = "https://discord.com/api/webhooks/1486744612629643326/VYncYqySvQRDulHJQQfKt8yAJvQQ2JSh-nTbitiqStHwwXhO1EKZYbK5oizukWZKPiUE"
+local recentSnipes = {}
+
+local function sendSnipeWebhook(shoeName, priceStr, sellerName)
+    if SNIPE_WEBHOOK_URL == "" then return end
+    
+    -- STRICT RULE: If we STILL don't know the seller, cancel the webhook entirely!
+    if not sellerName or sellerName == "" or sellerName == "Unknown" then
+        warn("Sterling Snipe Engine: Aborted webhook. Could not verify seller identity.")
+        return
+    end
+    
+    local snipeKey = shoeName .. ":" .. priceStr
+    if recentSnipes[snipeKey] and tick() - recentSnipes[snipeKey] < 3 then return end
+    recentSnipes[snipeKey] = tick()
+    
+    local spentNum = cleanInput(priceStr)
+    local mktPrice = marketPrices[shoeName] or 0
+    local profit = mktPrice - spentNum
+    
+    local mktDisplay = mktPrice > 0 and "$" .. formatNumber(mktPrice) or "UNKNOWN"
+    local profitDisplay = "N/A"
+    if mktPrice > 0 then
+        if profit > 0 then profitDisplay = "+$" .. formatNumber(profit) .. " 📈"
+        elseif profit < 0 then profitDisplay = "-$" .. formatNumber(math.abs(profit)) .. " 📉"
+        else profitDisplay = "$0 (Exact Match) ⚖️" end
+    end
+
+    local embedData = {
+        ["title"] = "🎯 SNEAKER SNIPED!",
+        ["description"] = "**Executive:** `" .. LocalPlayer.DisplayName .. "`\n**Seller:** `" .. sellerName .. "`\n**Asset Acquired:** `" .. shoeName .. "`\n**Capital Spent:** `$" .. formatNumber(spentNum) .. "`\n**Market Value:** `" .. mktDisplay .. "`\n**Est. Profit:** `" .. profitDisplay .. "`",
+        ["color"] = 11665663,
+        ["footer"] = {["text"] = "Sterling Enterprise • " .. os.date("%Y-%m-%d %I:%M:%S %p")}
+    }
+    
+    local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    if req then
+        task.spawn(function()
+            local imageUrl = getDirectShoeImage(shoeName)
+            if imageUrl then embedData["thumbnail"] = {["url"] = imageUrl} end
+            
+            pcall(function()
+                req({
+                    Url = SNIPE_WEBHOOK_URL,
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = HttpService:JSONEncode({["embeds"] = {embedData}})
+                })
+            end)
+        end)
+    end
+end
+
+local function processSnipeWithWait(who, shoe, price, initialSeller)
+    local cleanPriceNum = cleanInput(price)
+    local searchKey = shoe .. "_" .. tostring(cleanPriceNum)
+    
+    -- LOG THE BUYER FOR THE LIVE FEED ENGINE
+    _G.RecentBuyers = _G.RecentBuyers or {}
+    _G.RecentBuyers[searchKey] = who
+
+    -- Only proceed if the buyer is us
+    if not (string.find(who, LocalPlayer.Name) or string.find(who, LocalPlayer.DisplayName)) then return end
+
+    task.spawn(function()
+        local finalSeller = initialSeller
+        local attempts = 0
+        
+        -- WAIT LOOP: Give the Live Feed cache up to 5 seconds to grab the seller data
+        while (not finalSeller or finalSeller == "") and attempts < 10 do
+            if _G.LiveListingCache and _G.LiveListingCache[searchKey] then
+                finalSeller = _G.LiveListingCache[searchKey]
+                break
+            end
+            attempts = attempts + 1
+            task.wait(0.5)
+        end
+
+        -- Formatting the seller name nicely if we finally got it
+        local sellerDisplay = "Unknown"
+        if finalSeller and finalSeller ~= "" then
+            local cleanUser = string.gsub(finalSeller, "[^%w_]", "")
+            local p = Players:FindFirstChild(cleanUser)
+            sellerDisplay = p and p.DisplayName .. " (@" .. cleanUser .. ")" or cleanUser
+        end
+
+        -- Attempt to fire the webhook (sendSnipeWebhook will block it if it's still Unknown)
+        sendSnipeWebhook(shoe, price, sellerDisplay)
+    end)
+end
+
+local function onChatMessage(rawMessage)
+    local cleanMessage = string.gsub(rawMessage, "<[^>]+>", "") 
+    local who, shoe, price, sellerUser = string.match(cleanMessage, "(%S+) has bought the (.-) for (%S+) from (%S+)")
+    
+    if not who then 
+        who, shoe, price = string.match(cleanMessage, "(%S+) has bought the (.-) for (%S+)") 
+    end
+    
+    if who and shoe and price then
+        processSnipeWithWait(who, shoe, price, sellerUser)
+    end
+end
+
+local chatEvents = ReplicatedStorage:WaitForChild("DefaultChatSystemChatEvents", 5)
+if chatEvents and chatEvents:FindFirstChild("OnMessageDoneFiltering") then
+    chatEvents.OnMessageDoneFiltering.OnClientEvent:Connect(function(messageData)
+        if messageData.Message then onChatMessage(messageData.Message) end
+    end)
+end
+
+local TextChatService = game:GetService("TextChatService")
+TextChatService.MessageReceived:Connect(function(textChatMessage)
+    if textChatMessage.Text then onChatMessage(textChatMessage.Text) end
+end)
+
+--================================================================================
+-- PANIC DISCONNECT HOTKEY (F8)
+--================================================================================
+UIS.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Enum.KeyCode.F8 then
+        LocalPlayer:Kick("🛡️ STERLING ENTERPRISE: Panic Disconnect Triggered.")
+    end
+end)
+
+--================================================================================
+-- LIVE CHAT CONSOLE (ENDLESS HISTORY DISCORD PATCHING)
+--================================================================================
+local CHAT_WEBHOOK_URL = "https://discord.com/api/webhooks/1482697068052221974/bOqx4M8JIiHtOFo2a26pQjtIVeSJ76rvE_OEP-1WbtsvP8E81rBSSPfvijloUC_ALz9d"
+local consoleMessageId = nil
+local chatHistory = {}
+local lastLoggedMessage = ""
+local MAX_CHAT_LINES = 40 
+
+local function updateChatConsole(speaker, message)
+    if CHAT_WEBHOOK_URL == "" then return end
+    
+    local cleanMsg = string.gsub(message, "<[^>]+>", "")
+    local logString = "**" .. speaker .. ":** " .. cleanMsg
+    
+    if logString == lastLoggedMessage then return end
+    lastLoggedMessage = logString
+    
+    local timeStr = os.date("%I:%M:%S %p")
+    table.insert(chatHistory, "`[" .. timeStr .. "]` " .. logString)
+    
+    local fullText = table.concat(chatHistory, "\n")
+    
+    local hitLimit = false
+    if #chatHistory >= MAX_CHAT_LINES or string.len(fullText) > 3800 then
+        hitLimit = true
+    end
+    
+    local data = {
+        ["embeds"] = {{
+            ["title"] = "🖥️ STERLING ENTERPRISE : SERVER CHAT",
+            ["description"] = fullText,
+            ["color"] = 3447003,
+            ["footer"] = {["text"] = "Sterling Live Console • Auto-Updating"}
+        }}
+    }
+    
+    local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    if not req then return end
+    
+    task.spawn(function()
+        if not consoleMessageId then
+            local res = req({
+                Url = CHAT_WEBHOOK_URL .. "?wait=true",
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(data)
+            })
+            if res and res.Body then
+                local success, decoded = pcall(function() return HttpService:JSONDecode(res.Body) end)
+                if success and decoded and decoded.id then
+                    consoleMessageId = decoded.id
+                end
+            end
+        else
+            req({
+                Url = CHAT_WEBHOOK_URL .. "/messages/" .. consoleMessageId,
+                Method = "PATCH",
+                Headers = {["Content-Type"] = "application/json"},
+                Body = HttpService:JSONEncode(data)
+            })
+        end
+        
+        if hitLimit then
+            consoleMessageId = nil
+            chatHistory = {}
+        end
+    end)
+end
+
+local function setupPlayerChat(player)
+    player.Chatted:Connect(function(msg)
+        updateChatConsole(player.Name, msg)
+    end)
+end
+
+for _, p in ipairs(Players:GetPlayers()) do setupPlayerChat(p) end
+Players.PlayerAdded:Connect(setupPlayerChat)
+--================================================================================
+-- WEBHOOK MESSAGE ID SAVING SYSTEM (PREVENTS DUPLICATE SPAM ON RE-EXECUTE)
+--================================================================================
+local webhookSaveFile = "Sterling_WebhookIDs.txt"
+local invMessageIds = {}
+local stockyMessageIds = {}
+
+local function loadWebhookIDs()
+    if isfile and readfile and isfile(webhookSaveFile) then
+        local success, decoded = pcall(function() return HttpService:JSONDecode(readfile(webhookSaveFile)) end)
+        if success and type(decoded) == "table" then
+            invMessageIds = decoded.inv or {}
+            stockyMessageIds = decoded.stocky or {}
+        end
+    end
+end
+loadWebhookIDs() -- Load IDs immediately when script starts
+
+local function saveWebhookIDs()
+    if writefile then
+        local dataToSave = {inv = invMessageIds, stocky = stockyMessageIds}
+        pcall(function() writefile(webhookSaveFile, HttpService:JSONEncode(dataToSave)) end)
+    end
+end
+
+--================================================================================
+-- 1. LIVE PERSONAL INVENTORY BOARD (PAGINATOR ENGINE)
+--================================================================================
+local INVENTORY_WEBHOOK_URL = "https://discord.com/api/webhooks/1486744680199618725/2JCLowXKIze5t1R9MJMX8MsNYEAb2NUsipz98yhAxOtrpbn0cl5bK7F6nQ9hLUSeGhUQ"
+
+local function updateInventoryBoard()
+    if INVENTORY_WEBHOOK_URL == "" then return end
+    
+    local inventory = LocalPlayer:FindFirstChild("Inventory")
+    local unsellable = inventory and inventory:FindFirstChild("UnsellableInventory")
+    if not unsellable then return end
+    
+    local myShoes = {}
+    local totalInventoryValue = 0
+    
+    for _, item in pairs(unsellable:GetChildren()) do
+        local qty = item.Value or 1
+        local mkt = marketPrices[item.Name] or 0
+        local totalVal = mkt * qty
+        if qty > 0 then
+            table.insert(myShoes, {name = item.Name, qty = qty, mkt = mkt, total = totalVal})
+            totalInventoryValue = totalInventoryValue + totalVal
+        end
+    end
+    
+    table.sort(myShoes, function(a, b) return a.total > b.total end)
+    
+    local ls = LocalPlayer:FindFirstChild("leaderstats")
+    local cash = ls and ls:FindFirstChild("Money") and ls.Money.Value or 0
+    
+    local payloads = {}
+    local currentEmbeds = {}
+    
+    table.insert(currentEmbeds, {
+        ["title"] = "📦 INVENTORY : " .. string.upper(LocalPlayer.Name) .. "'S VAULT",
+        ["description"] = "**👟 Sneaker Worth:** `$" .. formatNumber(totalInventoryValue) .. "`\n**💵 Liquid Cash:** `$" .. formatNumber(cash) .. "`\n**💎 Net Worth:** `$" .. formatNumber(totalInventoryValue + cash) .. "`",
+        ["color"] = 11665663, 
+        ["footer"] = {["text"] = "Vault Sync • Auto-Updates Every 60s"}
+    })
+    
+    local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    if not req then return end
+
+    task.spawn(function()
+        for i, shoe in ipairs(myShoes) do
+            -- RATE LIMIT FIX: Pauses slightly between grabbing each image
+            local imageUrl = getDirectShoeImage(shoe.name)
+            task.wait(0.2) 
+            
+            local embedData = {
+                ["title"] = shoe.name,
+                ["description"] = "**Quantity:** `" .. formatNumber(shoe.qty) .. "`\n**Last Sale:** `$" .. formatNumber(shoe.mkt) .. "`\n**Asset Total:** `$" .. formatNumber(shoe.total) .. "`",
+                ["color"] = 11665663 
+            }
+            
+            if imageUrl then embedData["thumbnail"] = {["url"] = imageUrl} end
+            table.insert(currentEmbeds, embedData)
+            
+            if #currentEmbeds == 10 then
+                table.insert(payloads, {["embeds"] = currentEmbeds})
+                currentEmbeds = {}
+            end
+        end
+        
+        if #currentEmbeds > 0 then table.insert(payloads, {["embeds"] = currentEmbeds}) end
+        
+        for i, payload in ipairs(payloads) do
+            if not invMessageIds[i] then
+                local res = req({
+                    Url = INVENTORY_WEBHOOK_URL .. "?wait=true",
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = HttpService:JSONEncode(payload)
+                })
+                if res and res.Body then
+                    local suc, dec = pcall(function() return HttpService:JSONDecode(res.Body) end)
+                    if suc and dec and dec.id then 
+                        invMessageIds[i] = dec.id 
+                        saveWebhookIDs()
+                    end
+                end
+            else
+                req({
+                    Url = INVENTORY_WEBHOOK_URL .. "/messages/" .. invMessageIds[i],
+                    Method = "PATCH",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = HttpService:JSONEncode(payload)
+                })
+            end
+            task.wait(2) -- Pause between Discord messages
+        end
+    end)
+end
+
+task.spawn(function()
+    while task.wait(60) do updateInventoryBoard() end
+end)
+
+--================================================================================
+-- 2. LIVE STOCKY GLOBAL MARKET BOARD (DUAL-SERVER ENGINE)
+--================================================================================
+local STOCKY_WEBHOOK_URL = "https://discord.com/api/webhooks/1486744770897379358/6kXfmuALrXVnVzbK8Q34OXFrxWx6Xt2MOzR6jbh1Z6_Q51ngZclHwFoikghDcEGDC8cE"
+local OLD_STOCKY_WEBHOOK_URL = "https://discord.com/api/webhooks/1482909505183547554/9-Nz1pfZLdVVxbpGVDDmbOsK2-hDh24f3h6R7XzDP4ZdEk_C44ZB49Apy15z9duw7xt3"
+
+local function updateStockYMarketBoard()
+    if STOCKY_WEBHOOK_URL == "" and OLD_STOCKY_WEBHOOK_URL == "" then return end
+    
+    local marketList = {}
+    local addedShoes = {}
+    
+    for name, price in pairs(marketPrices) do
+        table.insert(marketList, {name = name, price = price})
+        addedShoes[name] = true
+    end
+    
+    for _, shoeData in ipairs(presetSneakers) do
+        if not addedShoes[shoeData.full] then
+            table.insert(marketList, {name = shoeData.full, price = 0}) 
+            addedShoes[shoeData.full] = true
+        end
+    end
+    
+    if #marketList == 0 then return end
+    table.sort(marketList, function(a, b) return a.price > b.price end)
+    
+    local payloads = {}
+    local currentEmbeds = {}
+    
+    table.insert(currentEmbeds, {
+        ["title"] = "📈 STOCKY : GLOBAL MARKET DATA",
+        ["description"] = "**LIVE COMPLETE MARKET VALUATIONS**\nTracking all asset fluctuations in real-time.",
+        ["color"] = 16766720, 
+        ["footer"] = {["text"] = "Global Market Sync • Auto-Updates Every 60s"}
+    })
+    
+    for i, shoe in ipairs(marketList) do
+        local trendStr = "STABLE ⚖️"
+        if priceTrends[shoe.name] == "UP" then trendStr = "RISING 📈" 
+        elseif priceTrends[shoe.name] == "DOWN" then trendStr = "DROPPING 📉" end
+        local imageUrl = getDirectShoeImage(shoe.name)
+        local priceDisplay = shoe.price > 0 and "$" .. formatNumber(shoe.price) or "UNKNOWN"
+        local embedData = {
+            ["title"] = "#" .. i .. " - " .. shoe.name,
+            ["description"] = "**Current Value:** `" .. priceDisplay .. "`\n**Market Trend:** `" .. trendStr .. "`",
+            ["color"] = 3447003 
+        }
+        if imageUrl then embedData["thumbnail"] = {["url"] = imageUrl} end
+        table.insert(currentEmbeds, embedData)
+        if #currentEmbeds == 10 then
+            table.insert(payloads, {["embeds"] = currentEmbeds})
+            currentEmbeds = {}
+        end
+    end
+    if #currentEmbeds > 0 then table.insert(payloads, {["embeds"] = currentEmbeds}) end
+    
+    local req = (syn and syn.request) or (http and http.request) or http_request or (fluxus and fluxus.request) or request
+    if not req then return end
+    
+    task.spawn(function()
+        for i, payload in ipairs(payloads) do
+            -- DUAL SEND LOGIC: Loops through both webhooks for every payload
+            local targets = {STOCKY_WEBHOOK_URL, OLD_STOCKY_WEBHOOK_URL}
+            for _, url in ipairs(targets) do
+                if url ~= "" then
+                    if not stockyMessageIds[i .. url] then
+                        local res = req({
+                            Url = url .. "?wait=true",
+                            Method = "POST",
+                            Headers = {["Content-Type"] = "application/json"},
+                            Body = HttpService:JSONEncode(payload)
+                        })
+                        if res and res.Body then
+                            local suc, dec = pcall(function() return HttpService:JSONDecode(res.Body) end)
+                            if suc and dec and dec.id then 
+                                stockyMessageIds[i .. url] = dec.id 
+                                saveWebhookIDs()
+                            end
+                        end
+                    else
+                        req({
+                            Url = url .. "/messages/" .. stockyMessageIds[i .. url],
+                            Method = "PATCH",
+                            Headers = {["Content-Type"] = "application/json"},
+                            Body = HttpService:JSONEncode(payload)
+                        })
+                    end
+                end
+            end
+            task.wait(2.5)
+        end
+    end)
+end
+--================================================================================
+-- MANUAL VAULT / NETWORTH SEND BUTTON
+--================================================================================
+local manualVaultBtn = Instance.new("TextButton", panels["Networth"])
+manualVaultBtn.Size = UDim2.new(0, 300, 0, 50)
+manualVaultBtn.Position = UDim2.new(0, 20, 0, 520) -- Places it under the calculator
+manualVaultBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
+manualVaultBtn.Text = "SEND VAULT TO DISCORD"
+manualVaultBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+manualVaultBtn.Font = Enum.Font.Code
+manualVaultBtn.TextSize = 22
+Instance.new("UIStroke", manualVaultBtn).Color = Color3.fromRGB(0, 100, 255)
+
+-- Helper function to convert long numbers into clean K/M/B suffixes
+-- Helper function to convert long numbers into clean K/M/B/T/Q suffixes
+local function formatSuffix(numStr)
+    local cleanStr = string.gsub(numStr, "[$,]", "") -- Strip symbols so math works
+    local num = tonumber(cleanStr)
+    if not num then return numStr end
+    
+    if num >= 1000000000000000 then
+        return "$" .. string.format("%.1fQ", num / 1000000000000000) -- Quadrillions
+    elseif num >= 1000000000000 then
+        return "$" .. string.format("%.1fT", num / 1000000000000) -- Trillions
+    elseif num >= 1000000000 then
+        return "$" .. string.format("%.1fB", num / 1000000000) -- Billions
+    elseif num >= 1000000 then
+        return "$" .. string.format("%.1fM", num / 1000000) -- Millions
+    elseif num >= 1000 then
+        return "$" .. string.format("%.1fK", num / 1000) -- Thousands
+    else
+        return "$" .. tostring(math.floor(num))
+    end
+end
+
+local vaultCooldown = false
+manualVaultBtn.MouseButton1Click:Connect(function()
+    if vaultCooldown then return end
+    
+    local currentText = resultsLabel.Text
+    
+    -- Prevents sending if you haven't scanned a player yet
+    if currentText == "" or string.find(currentText, "SYSTEM READY") then 
+        manualVaultBtn.Text = "SCAN A PLAYER FIRST!"
+        manualVaultBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+        task.wait(1.5)
+        manualVaultBtn.Text = "SEND VAULT TO DISCORD"
+        manualVaultBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
+        return 
+    end 
+    
+    vaultCooldown = true
+    manualVaultBtn.Text = "SENDING TO WEBHOOK..."
+    manualVaultBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 0)
+    
+    task.spawn(function()
+        -- Extract the numbers from the raw scanner text
+        local rawSneaker = string.match(currentText, "SNEAKER WORTH:%s*(%$[%d%,]+)") or "$0"
+        local rawCash = string.match(currentText, "CASH:%s*(%$[%d%,]+)") or "$0"
+        local rawTotal = string.match(currentText, "TOTAL WORTH:%s*(%$[%d%,]+)") or "$0"
+        local skipped = string.match(currentText, "SKIPPED:%s*(%d+)") or "0"
+        
+        -- Rebuild the beautiful embed format, passing the numbers through the suffix formatter
+        -- Rebuild the embed using Discord Headers for massive text
+-- Rebuild the embed using massive Discord Headers (H1) and remove skipped items
+        local formattedDescription = "# 💵 Cash: " .. formatSuffix(rawCash) .. "\n" ..
+                                     "# 👟 Sneaker Worth: " .. formatSuffix(rawSneaker) .. "\n\n" ..
+                                     "# 💎 Total Networth: " .. formatSuffix(rawTotal)
+
+        -- Send the cleanly formatted text to Discord
+        sendWebhook("📊 Daily Networth Update", formattedDescription, 3447003)
+        
+        task.wait(1.5) 
+        manualVaultBtn.Text = "VAULT SENT!"
+        manualVaultBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+        task.wait(2)
+        manualVaultBtn.Text = "SEND VAULT TO DISCORD"
+        manualVaultBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
+        vaultCooldown = false
+    end)
+end)
+--================================================================================
+-- MANUAL STOCKY FORCE PUSH BUTTON (AUTOBUY TAB)
+--================================================================================
+-- Adjusted CanvasSize since we removed the pop-up notifier
+panels["Autobuy"].CanvasSize = UDim2.new(0, 0, 0, 680)
+
+local msToggleBtn = Instance.new("TextButton", panels["Autobuy"])
+msToggleBtn.Size = UDim2.new(0, 700, 0, 140)
+msToggleBtn.Position = UDim2.new(0.5, -350, 0, 490) -- Moved up to fill the gap!
+msToggleBtn.Text = "FORCE STOCKY UPDATE"
+msToggleBtn.Font = Enum.Font.Code
+msToggleBtn.TextSize = 40
+msToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120) 
+msToggleBtn.TextColor3 = Color3.new(1, 1, 1)
+Instance.new("UIStroke", msToggleBtn).Color = Color3.fromRGB(0, 100, 255)
+
+local msCooldown = false
+msToggleBtn.MouseButton1Click:Connect(function()
+    if msCooldown then return end
+    msCooldown = true
+    
+    msToggleBtn.Text = "PUSHING DATA..."
+    msToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 0)
+    
+    task.spawn(function()
+        if updateStockYMarketBoard then
+            updateStockYMarketBoard()
+        end
+        
+        task.wait(2) 
+        msToggleBtn.Text = "SUCCESS!"
+        msToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+        
+        task.wait(3)
+        msToggleBtn.Text = "FORCE STOCKY UPDATE"
+        msToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 60, 120)
+        msCooldown = false
+    end)
+end)
+print("STERLING ENTERPRISE V48.5 (CONDENSED & OPTIMIZED) LOADED. [Keybind: LeftAlt]")
